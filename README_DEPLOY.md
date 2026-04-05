@@ -2,6 +2,13 @@
 
 This guide will help you deploy the **Public Pulse** application to Vercel.
 
+## Full-Stack Architecture
+
+This app uses a **Full-Stack Architecture** to securely handle AI operations:
+*   **Production (Vercel)**: Uses Serverless Functions in the `/api` directory.
+*   **Development**: Uses `server.ts` (Express) to simulate the backend and serve the Vite frontend.
+*   **Security**: This prevents your `GEMINI_API_KEY` from being exposed in the browser.
+
 ## Prerequisites
 
 1.  A [Vercel](https://vercel.com) account.
@@ -15,7 +22,14 @@ This guide will help you deploy the **Public Pulse** application to Vercel.
     *   Go to [Vercel Dashboard](https://vercel.com/dashboard).
     *   Click **Add New...** -> **Project**.
     *   Import your repository.
-3.  **Configure Environment Variables**:
+3.  **Firebase OAuth Configuration (CRITICAL)**:
+    *   If you see an error like "The current domain is not authorized for OAuth operations", you must:
+        1.  Go to the [Firebase Console](https://console.firebase.google.com/).
+        2.  Select your project: `publicpulse-5cf8c`.
+        3.  Navigate to **Authentication** > **Settings** > **Authorized domains**.
+        4.  Click **Add domain** and enter: `public-pulse-brown.vercel.app`.
+        5.  Also add any other custom domains you use.
+4.  **Configure Environment Variables**:
     *   In the **Environment Variables** section, add the following:
         *   `GEMINI_API_KEY`: Your Gemini API key.
         *   `VITE_APP_URL`: The URL where your app will be hosted (e.g., `https://your-app.vercel.app`).

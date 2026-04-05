@@ -1,0 +1,244 @@
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GoogleGenAI } from "@google/genai";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json());
+
+  // Gemini AI Setup (Server-side)
+  const getAiClient = () => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable is required");
+    }
+    return new GoogleGenAI({ apiKey });
+  };
+
+  // API Routes
+  app.post("/api/ai/refine", async (req, res) => {
+    try {
+      const { rawInput } = req.body;
+      if (!rawInput) {
+        return res.status(400).json({ error: "rawInput is required" });
+      }
+
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Convert this news headline or topic into a neutral, unbiased YES/NO question for a public polling platform. 
+        Also provide a one-word category (e.g., National, Economy, Environment, Tech).
+        
+        Input: "${rawInput}"
+        
+        Return JSON format:
+        {
+          "question": "...",
+          "category": "..."
+        }`,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const result = JSON.parse(response.text);
+      res.json(result);
+    } catch (error) {
+      console.error("AI Refinement Error:", error);
+      res.status(500).json({ error: "AI refinement failed" });
+    }
+  });
+
+  app.post("/api/ai/insights", async (req, res) => {
+    try {
+      const { polls } = req.body;
+      if (!polls) {
+        return res.status(400).json({ error: "polls are required" });
+      }
+
+      const ai = getAiClient();
+      const pollContext = polls.map((p: any) => ({
+        question: p.question,
+        category: p.category,
+        yes: p.yesVotes,
+        no: p.noVotes,
+        total: p.totalVotes
+      }));
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Analyze these public opinion polls from Bangladesh and provide predictive governance insights.
+        
+        Poll Data: ${JSON.stringify(pollContext)}
+        
+        Return JSON format:
+        {
+          "summary": "Overall national sentiment summary...",
+          "predictions": [
+            {
+              "topic": "...",
+              "trend": "rising|falling|stable",
+              "confidence": 0.85,
+              "reasoning": "..."
+            }
+          ],
+          "policySuggestions": [
+            {
+              "title": "...",
+              "description": "...",
+              "expectedSupport": 75
+            }
+          ],
+          "riskAlerts": ["Alert 1", "Alert 2"]
+        }`,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const result = JSON.parse(response.text);
+      res.json(result);
+    } catch (error) {
+      console.error("Governance Insight Error:", error);
+      res.status(500).json({ error: "Governance insight generation failed" });
+    }
+  });
+
+  app.post("/api/ai/simulate", async (req, res) => {
+    try {
+      const { policy, historicalPolls } = req.body;
+      if (!policy || !historicalPolls) {
+        return res.status(400).json({ error: "policy and historicalPolls are required" });
+      }
+
+      const ai = getAiClient();
+      const pollContext = historicalPolls.map((p: any) => ({
+        question: p.question,
+        category: p.category,
+        yes: p.yesVotes,
+        no: p.noVotes
+      }));
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Predict the public reaction in Bangladesh to this hypothetical policy based on historical polling data.
+        
+        Hypothetical Policy: "${policy}"
+        Historical Data: ${JSON.stringify(pollContext)}
+        
+        Return JSON format:
+        {
+          "predictedSupport": 65,
+          "sentimentAnalysis": "...",
+          "keyConcerns": ["Concern 1", "Concern 2"],
+          "demographicImpact": "..."
+        }`,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const result = JSON.parse(response.text);
+      res.json(result);
+    } catch (error) {
+      console.error("Policy Simulation Error:", error);
+      res.status(500).json({ error: "Policy simulation failed" });
+    }
+  });
+
+  app.post("/api/ai/scrape", async (req, res) => {
+    const NEWS_SOURCES = [
+      { name: "Prothom Alo", url: "https://www.prothomalo.com/bangladesh" },
+      { name: "The Daily Star", url: "https://www.thedailystar.net/bangladesh" },
+      { name: "BDNews24", url: "https://bdnews24.com/bangladesh" },
+      { name: "Jugantor", url: "https://www.jugantor.com/national" },
+      { name: "Kaler Kantho", url: "https://www.kalerkantho.com/online/national" }
+    ];
+
+    try {
+      const ai = getAiClient();
+      const allResults = [];
+
+      for (const source of NEWS_SOURCES) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: `Extract the top 3 news headlines from ${source.url} and for each headline, generate a neutral YES/NO public opinion question. 
+            
+            Rules for questions:
+            - Neutral tone
+            - No bias
+            - Max 20 words
+            - Answer must be Yes/No
+            - Focus on policy, governance, and public interest
+            
+            Return the result as a JSON array of objects with these fields:
+            - headline: the original headline
+            - question: the generated YES/NO question
+            - category: one of ['National', 'Economy', 'Policy', 'Environment', 'Tech']
+            `,
+            config: {
+              tools: [{ urlContext: {} }],
+              responseMimeType: "application/json"
+            }
+          });
+
+          const data = JSON.parse(response.text || "[]");
+          const sourceResults = data.map((item: any) => ({
+            ...item,
+            source: source.name,
+            sourceUrl: source.url,
+            status: 'pending'
+          }));
+          allResults.push(...sourceResults);
+        } catch (error) {
+          console.error(`Failed to scrape ${source.name}:`, error);
+        }
+      }
+
+      res.json(allResults);
+    } catch (error) {
+      console.error("Scraping Error:", error);
+      res.status(500).json({ error: "Scraping failed" });
+    }
+  });
+
+  // Health check
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

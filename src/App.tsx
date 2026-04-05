@@ -44,7 +44,6 @@ import {
 import { AdminModeration } from './components/AdminModeration';
 import { Dashboard } from './components/Dashboard';
 import { Legal } from './components/Legal';
-import { GoogleGenAI } from "@google/genai";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { cn } from './lib/utils';
 import { refineQuestion } from './services/geminiService';
