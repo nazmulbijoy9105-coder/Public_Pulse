@@ -509,49 +509,160 @@ const AdminPanel: React.FC = () => {
   );
 };
 
-const Header: React.FC = () => {
-  const { profile, login, logout, user } = useAuth();
+interface HeaderProps {
+  view: 'active' | 'archived' | 'moderation' | 'dashboard' | 'legal';
+  setView: (view: 'active' | 'archived' | 'moderation' | 'dashboard' | 'legal') => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ view, setView }) => {
+  const { profile, login, logout, user, isAdmin } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-2xl border-b border-gray-100/50 px-8 py-6 flex justify-between items-center">
-      <div className="flex items-center gap-4">
-        <div className="relative w-12 h-12 bg-bd-green rounded-[1.25rem] flex items-center justify-center text-white shadow-2xl shadow-bd-green/20 overflow-hidden group">
-          <Smartphone size={28} className="z-10 group-hover:scale-110 transition-transform duration-500" />
-          <div className="absolute inset-0 bg-gradient-to-br from-bd-green to-bd-green-dark" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-bd-red rounded-full blur-[1px] opacity-90 shadow-[0_0_15px_rgba(244,42,65,0.6)]" />
-        </div>
-        <div>
-          <h1 className="text-xl font-display font-black text-gray-900 leading-none tracking-tight">PUBLIC PULSE</h1>
-          <div className="flex items-center gap-1.5 mt-1">
-            <div className="w-3 h-1 bg-bd-green rounded-full" />
-            <p className="text-[10px] font-black text-bd-green uppercase tracking-[0.2em]">Voice of Bangladesh</p>
+    <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-2xl border-b border-gray-100/50 px-8 py-4 flex flex-col gap-4">
+      <div className="flex justify-between items-center w-full">
+        <div className="flex items-center gap-4">
+          <div className="relative w-10 h-10 bg-bd-green rounded-[1rem] flex items-center justify-center text-white shadow-2xl shadow-bd-green/20 overflow-hidden group">
+            <Smartphone size={24} className="z-10 group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-br from-bd-green to-bd-green-dark" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-bd-red rounded-full blur-[1px] opacity-90 shadow-[0_0_15px_rgba(244,42,65,0.6)]" />
           </div>
-        </div>
-      </div>
-
-      {user ? (
-        <div className="flex items-center gap-5">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-black text-gray-900 tracking-tight">{profile?.displayName}</p>
-            <div className="flex items-center justify-end gap-1.5 text-[10px] text-bd-green font-black tracking-widest uppercase">
-              {profile?.role === 'admin' && (
-                <span className="bg-bd-red text-white px-2 py-0.5 rounded-md text-[8px] mr-1 shadow-sm">ADMIN</span>
-              )}
-              <ShieldCheck size={14} className="text-bd-red" />
-              Trust: {Math.round((profile?.trustScore || 0) * 100)}%
+          <div>
+            <h1 className="text-lg font-display font-black text-gray-900 leading-none tracking-tight">PUBLIC PULSE</h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="w-2.5 h-0.5 bg-bd-green rounded-full" />
+              <p className="text-[8px] font-black text-bd-green uppercase tracking-[0.2em]">Voice of Bangladesh</p>
             </div>
           </div>
-          <button onClick={logout} className="p-3 text-gray-400 hover:text-bd-red transition-all duration-300 hover:bg-bd-red/5 rounded-xl">
-            <LogOut size={22} />
+        </div>
+
+        {user && (
+          <div className="hidden md:flex gap-2 bg-gray-100/50 p-1 rounded-[1.25rem] border border-gray-200/50">
+            <button 
+              onClick={() => setView('active')}
+              className={cn(
+                "px-5 py-2 rounded-[1rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500",
+                view === 'active' ? "bg-bd-green text-white shadow-lg shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+              )}
+            >
+              Live Pulse
+            </button>
+            <button 
+              onClick={() => setView('archived')}
+              className={cn(
+                "px-5 py-2 rounded-[1rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500",
+                view === 'archived' ? "bg-gray-900 text-white shadow-lg shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
+              )}
+            >
+              Archive
+            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => setView('moderation')}
+                className={cn(
+                  "px-5 py-2 rounded-[1rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500",
+                  view === 'moderation' ? "bg-bd-red text-white shadow-lg shadow-bd-red/20" : "text-gray-400 hover:text-bd-red"
+                )}
+              >
+                Moderation
+              </button>
+            )}
+            <button 
+              onClick={() => setView('dashboard')}
+              className={cn(
+                "px-5 py-2 rounded-[1rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500",
+                view === 'dashboard' ? "bg-bd-green text-white shadow-lg shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+              )}
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => setView('legal')}
+              className={cn(
+                "px-5 py-2 rounded-[1rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500",
+                view === 'legal' ? "bg-gray-900 text-white shadow-lg shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
+              )}
+            >
+              Legal
+            </button>
+          </div>
+        )}
+
+        {user ? (
+          <div className="flex items-center gap-4">
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] font-black text-gray-900 tracking-tight">{profile?.displayName}</p>
+              <div className="flex items-center justify-end gap-1 text-[8px] text-bd-green font-black tracking-widest uppercase">
+                {profile?.role === 'admin' && (
+                  <span className="bg-bd-red text-white px-1.5 py-0.5 rounded text-[7px] mr-1 shadow-sm">ADMIN</span>
+                )}
+                <ShieldCheck size={10} className="text-bd-red" />
+                Trust: {Math.round((profile?.trustScore || 0) * 100)}%
+              </div>
+            </div>
+            <button onClick={logout} className="p-2 text-gray-400 hover:text-bd-red transition-all duration-300 hover:bg-bd-red/5 rounded-lg">
+              <LogOut size={18} />
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={login}
+            className="px-6 py-2 bg-gray-900 text-white rounded-full text-[10px] font-black uppercase tracking-[0.2em] hover:bg-bd-green transition-all duration-500 shadow-xl shadow-gray-200"
+          >
+            Sign In
+          </button>
+        )}
+      </div>
+
+      {user && (
+        <div className="flex md:hidden gap-2 bg-gray-100/50 p-1 rounded-[1.25rem] border border-gray-200/50 overflow-x-auto no-scrollbar">
+          <button 
+            onClick={() => setView('active')}
+            className={cn(
+              "px-4 py-2 rounded-[1rem] text-[9px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap",
+              view === 'active' ? "bg-bd-green text-white shadow-lg shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+            )}
+          >
+            Live Pulse
+          </button>
+          <button 
+            onClick={() => setView('archived')}
+            className={cn(
+              "px-4 py-2 rounded-[1rem] text-[9px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap",
+              view === 'archived' ? "bg-gray-900 text-white shadow-lg shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
+            )}
+          >
+            Archive
+          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setView('moderation')}
+              className={cn(
+                "px-4 py-2 rounded-[1rem] text-[9px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap",
+                view === 'moderation' ? "bg-bd-red text-white shadow-lg shadow-bd-red/20" : "text-gray-400 hover:text-bd-red"
+              )}
+            >
+              Moderation
+            </button>
+          )}
+          <button 
+            onClick={() => setView('dashboard')}
+            className={cn(
+              "px-4 py-2 rounded-[1rem] text-[9px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap",
+              view === 'dashboard' ? "bg-bd-green text-white shadow-lg shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+            )}
+          >
+            Dashboard
+          </button>
+          <button 
+            onClick={() => setView('legal')}
+            className={cn(
+              "px-4 py-2 rounded-[1rem] text-[9px] font-black uppercase tracking-widest transition-all duration-500 whitespace-nowrap",
+              view === 'legal' ? "bg-gray-900 text-white shadow-lg shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
+            )}
+          >
+            Legal
           </button>
         </div>
-      ) : (
-        <button 
-          onClick={login}
-          className="px-8 py-3 bg-gray-900 text-white rounded-full text-xs font-black uppercase tracking-[0.2em] hover:bg-bd-green transition-all duration-500 shadow-2xl shadow-gray-200"
-        >
-          Sign In
-        </button>
       )}
     </header>
   );
@@ -632,7 +743,8 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <Header />      <main className="max-w-2xl mx-auto px-8 pt-12">
+      <Header view={view} setView={setView} />
+      <main className="max-w-2xl mx-auto px-8 pt-12">
         {!user ? (
           <div className="text-center py-24">
             <div className="w-32 h-32 bg-bd-green/10 text-bd-green rounded-[3rem] flex items-center justify-center mx-auto mb-10 relative group">
@@ -663,55 +775,6 @@ const AppContent: React.FC = () => {
             {isAdmin && <AdminPanel />}
 
             <div className="flex items-center justify-between mb-8">
-              <div className="flex gap-3 bg-white p-1.5 rounded-[1.5rem] shadow-sm border border-gray-100">
-                <button 
-                  onClick={() => setView('active')}
-                  className={cn(
-                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                    view === 'active' ? "bg-bd-green text-white shadow-xl shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
-                  )}
-                >
-                  Live Pulse
-                </button>
-                <button 
-                  onClick={() => setView('archived')}
-                  className={cn(
-                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                    view === 'archived' ? "bg-gray-900 text-white shadow-xl shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
-                  )}
-                >
-                  Archive
-                </button>
-                {isAdmin && (
-                  <button 
-                    onClick={() => setView('moderation')}
-                    className={cn(
-                      "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                      view === 'moderation' ? "bg-bd-red text-white shadow-xl shadow-bd-red/20" : "text-gray-400 hover:text-bd-red"
-                    )}
-                  >
-                    Moderation
-                  </button>
-                )}
-                <button 
-                  onClick={() => setView('dashboard')}
-                  className={cn(
-                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                    view === 'dashboard' ? "bg-bd-green text-white shadow-xl shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
-                  )}
-                >
-                  Dashboard
-                </button>
-                <button 
-                  onClick={() => setView('legal')}
-                  className={cn(
-                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                    view === 'legal' ? "bg-gray-900 text-white shadow-xl shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
-                  )}
-                >
-                  Legal
-                </button>
-              </div>
               <div className="flex items-center gap-2.5 text-[10px] font-black text-bd-green uppercase tracking-[0.2em]">
                 <div className="w-2.5 h-2.5 bg-bd-red rounded-full animate-pulse shadow-[0_0_10px_rgba(244,42,65,0.5)]" />
                 Real-time
