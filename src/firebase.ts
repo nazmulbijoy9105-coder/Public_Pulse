@@ -1,7 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, PhoneAuthProvider, signInWithPopup, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, collection, query, where, getDocs, onSnapshot, setDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import firebaseConfigJson from '../firebase-applet-config.json';
+
+// Firebase configuration with environment variable support for production deployment
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).apiKey : ''),
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).authDomain : ''),
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).projectId : ''),
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).storageBucket : ''),
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).messagingSenderId : ''),
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).appId : ''),
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).measurementId : ''),
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).firestoreDatabaseId : '(default)')
+};
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
