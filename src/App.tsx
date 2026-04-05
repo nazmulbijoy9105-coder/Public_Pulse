@@ -397,6 +397,9 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
   );
 };
 
+const CATEGORIES = ['National', 'Economy', 'Policy', 'Infrastructure', 'Health', 'Education', 'Environment', 'Tech'];
+const FILTER_CATEGORIES = ['All', ...CATEGORIES];
+
 const AdminPanel: React.FC = () => {
   const { user } = useAuth();
   const [question, setQuestion] = useState('');
@@ -483,12 +486,15 @@ const AdminPanel: React.FC = () => {
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category</label>
-            <input
-              type="text"
+            <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none text-sm font-bold"
-            />
+              className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none text-sm font-bold bg-white appearance-none"
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
         </div>
         <button
@@ -566,24 +572,29 @@ const AppContent: React.FC = () => {
   const [nidNumber, setNidNumber] = useState('');
   const [showGovernance, setShowGovernance] = useState(false);
 
-  const categories = ['All', 'National', 'Economy', 'Policy', 'Environment', 'Tech'];
-
   useEffect(() => {
-    if (!user || (view !== 'active' && view !== 'archived')) {
+    if (!user || (view !== 'active' && view !== 'archived' && view !== 'dashboard')) {
       if (!user) setPolls([]);
       return;
     }
-    const q = query(
+
+    // For dashboard, we might want more data to show accurate stats
+    const pollLimit = view === 'dashboard' ? 100 : 20;
+    const pollStatus = view === 'dashboard' ? 'active' : view;
+
+    let q = query(
       collection(db, 'polls'), 
-      where('status', '==', view),
-      orderBy('createdAt', 'desc'), 
-      limit(20)
+      where('status', '==', pollStatus)
     );
+
+    if (filter !== 'All') {
+      q = query(q, where('category', '==', filter));
+    }
+
+    q = query(q, orderBy('createdAt', 'desc'), limit(pollLimit));
+
     const unsubscribe = onSnapshot(q, (snap) => {
-      let data = snap.docs.map(doc => doc.data() as Poll);
-      if (filter !== 'All') {
-        data = data.filter(p => p.category === filter);
-      }
+      const data = snap.docs.map(doc => doc.data() as Poll);
       setPolls(data);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'polls');
@@ -707,24 +718,16 @@ const AppContent: React.FC = () => {
               </div>
             </div>
 
-            {view === 'moderation' && isAdmin ? (
-              <AdminModeration />
-            ) : view === 'dashboard' ? (
-              <Dashboard polls={polls} />
-            ) : view === 'legal' ? (
-              <Legal />
-            ) : (
-              <div className="mb-12">
-
+            <div className="mb-12">
               <div className="flex gap-3 overflow-x-auto pb-6 no-scrollbar mb-6">
-                {categories.map(cat => (
+                {FILTER_CATEGORIES.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setFilter(cat)}
                     className={cn(
                       "px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all duration-500 border",
                       filter === cat 
-                        ? "bg-gray-900 text-white border-gray-900 shadow-xl shadow-gray-200" 
+                        ? "bg-bd-green text-white border-bd-green shadow-xl shadow-bd-green/20" 
                         : "bg-white text-gray-500 border-gray-100 hover:border-bd-green hover:text-bd-green"
                     )}
                   >
@@ -733,19 +736,26 @@ const AppContent: React.FC = () => {
                 ))}
               </div>
 
-              <AnimatePresence mode="popLayout">
-                {polls.length > 0 ? (
-                  polls.map((poll) => (
-                    <PollCard key={poll.id} poll={poll} onVerifyPhone={() => setShowPhoneModal(true)} />
-                  ))
-                ) : (
-                  <div className="text-center py-20 premium-card border-dashed border-2 border-gray-200 bg-transparent">
-                    <p className="text-gray-400 font-black text-xs uppercase tracking-widest">No {view} polls in {filter}</p>
-                  </div>
-                )}
-              </AnimatePresence>
+              {view === 'moderation' && isAdmin ? (
+                <AdminModeration />
+              ) : view === 'dashboard' ? (
+                <Dashboard polls={polls} />
+              ) : view === 'legal' ? (
+                <Legal />
+              ) : (
+                <AnimatePresence mode="popLayout">
+                  {polls.length > 0 ? (
+                    polls.map((poll) => (
+                      <PollCard key={poll.id} poll={poll} onVerifyPhone={() => setShowPhoneModal(true)} />
+                    ))
+                  ) : (
+                    <div className="text-center py-20 premium-card border-dashed border-2 border-gray-200 bg-transparent">
+                      <p className="text-gray-400 font-black text-xs uppercase tracking-widest">No {view} polls in {filter}</p>
+                    </div>
+                  )}
+                </AnimatePresence>
+              )}
             </div>
-          )}
 
             <div className="premium-card p-8 mb-10">
               <h4 className="text-xs font-black text-gray-900 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
