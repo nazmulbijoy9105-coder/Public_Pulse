@@ -3,16 +3,16 @@ import { getAuth, GoogleAuthProvider, PhoneAuthProvider, signInWithPopup, onAuth
 import { getFirestore, doc, getDocFromServer, collection, query, where, getDocs, onSnapshot, setDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import firebaseConfigJson from '../firebase-applet-config.json';
 
-// Firebase configuration with environment variable support for production deployment
+// Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).apiKey : ''),
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).authDomain : ''),
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).projectId : ''),
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).storageBucket : ''),
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).messagingSenderId : ''),
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).appId : ''),
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).measurementId : ''),
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || (typeof firebaseConfigJson !== 'undefined' ? (firebaseConfigJson as any).firestoreDatabaseId : '(default)')
+  apiKey: firebaseConfigJson.apiKey,
+  authDomain: firebaseConfigJson.authDomain,
+  projectId: firebaseConfigJson.projectId,
+  storageBucket: firebaseConfigJson.storageBucket,
+  messagingSenderId: firebaseConfigJson.messagingSenderId,
+  appId: firebaseConfigJson.appId,
+  measurementId: firebaseConfigJson.measurementId,
+  firestoreDatabaseId: firebaseConfigJson.firestoreDatabaseId || '(default)'
 };
 
 // Initialize Firebase SDK
@@ -74,13 +74,24 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Connection
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. ");
+// Test Connection with Retry
+async function testConnection(retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await getDocFromServer(doc(db, 'test', 'connection'));
+      console.log("Firebase connection successful.");
+      return;
+    } catch (error) {
+      if (i === retries - 1) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. The client is offline.");
+        } else {
+          console.error("Firebase connection failed:", error);
+        }
+      } else {
+        console.warn(`Firebase connection attempt ${i + 1} failed, retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
   }
 }
