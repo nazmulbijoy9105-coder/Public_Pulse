@@ -157,11 +157,14 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth State Changed:', firebaseUser?.uid, firebaseUser?.email);
       setUser(firebaseUser);
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
+        console.log('Fetching user document:', userRef.path);
         try {
           const userSnap = await getDoc(userRef);
+          console.log('User document exists:', userSnap.exists());
           if (userSnap.exists()) {
             setProfile(userSnap.data() as UserProfile);
           } else {
@@ -175,7 +178,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               nidVerified: false,
               deviceTrust: 0.8,
               behaviorScore: 0.7,
-              role: firebaseUser.email === 'NAZMULBIJOY9105@gmail.com' ? 'admin' : 'user',
+              role: firebaseUser.email?.toLowerCase() === 'nazmulbijoy9105@gmail.com' ? 'admin' : 'user',
               phoneVerified: false,
               createdAt: Timestamp.now(),
             };
