@@ -1,0 +1,7 @@
+{
+  "name": "Public Pulse v3",
+  "description": "Elite public sentiment infrastructure with trust-based voting, real-time analytics, and AI-driven neutral content generation.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

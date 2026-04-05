@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User identity and trust scoring data.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "trustScore": { "type": "number", "description": "Weighted trust score (0-1)" },
+        "nidVerified": { "type": "boolean" },
+        "deviceTrust": { "type": "number" },
+        "behaviorScore": { "type": "number" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role", "trustScore"]
+    },
+    "Poll": {
+      "title": "Public Poll",
+      "description": "A neutral YES/NO question for public sentiment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "source": { "type": "string", "description": "News source (e.g., The Daily Star)" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "totalVotes": { "type": "integer" },
+        "yesVotes": { "type": "integer" },
+        "noVotes": { "type": "integer" },
+        "trending": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "description": "Admin UID" }
+      },
+      "required": ["question", "status", "totalVotes"]
+    },
+    "Vote": {
+      "title": "User Vote",
+      "description": "A single vote cast by a verified user.",
+      "type": "object",
+      "properties": {
+        "pollId": { "type": "string" },
+        "userId": { "type": "string" },
+        "answer": { "type": "boolean" },
+        "trustWeight": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "region": { "type": "string" }
+      },
+      "required": ["pollId", "userId", "answer", "trustWeight"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and trust metrics."
+    },
+    "/polls/{pollId}": {
+      "schema": "Poll",
+      "description": "Poll metadata and aggregate counts."
+    },
+    "/polls/{pollId}/votes/{userId}": {
+      "schema": "Vote",
+      "description": "Individual votes for a specific poll."
+    }
+  }
+}

@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bd-green: #006a4e;
+  --color-bd-green-light: #008a66;
+  --color-bd-green-dark: #004d39;
+  --color-bd-red: #f42a41;
+  --color-bd-red-light: #ff4d61;
+  --color-bd-red-dark: #c11f32;
+  --color-bd-bg: #f8faf9;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Inter", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bd-bg text-gray-900 antialiased;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.premium-card {
+  @apply bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50 transition-all duration-300;
+}
+
+.premium-card:hover {
+  @apply shadow-[0_20px_50px_rgba(0,106,78,0.08)] -translate-y-1;
+}
+
+.bd-gradient {
+  @apply bg-gradient-to-br from-bd-green to-bd-green-dark;
+}
