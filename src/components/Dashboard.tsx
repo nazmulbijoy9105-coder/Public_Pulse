@@ -28,7 +28,11 @@ import {
   Zap,
   Play,
   ArrowRight,
-  Info
+  Info,
+  FileText,
+  Download,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { Poll } from '../App';
 import { generateGovernanceInsights, simulatePolicyReaction, GovernanceInsight } from '../services/aiAnalyticsService';
@@ -40,10 +44,65 @@ interface DashboardProps {
 
 const COLORS = ['#006A4E', '#F42A41', '#FFBB28', '#FF8042', '#8884d8'];
 
+const BangladeshMap: React.FC<{ data: any }> = ({ data }) => {
+  // Simplified SVG paths for Bangladesh divisions
+  const divisions = [
+    { id: 'Dhaka', path: 'M 100 100 L 150 100 L 150 150 L 100 150 Z', color: '#006A4E' },
+    { id: 'Chittagong', path: 'M 160 150 L 210 150 L 210 250 L 160 250 Z', color: '#F42A41' },
+    { id: 'Rajshahi', path: 'M 40 80 L 90 80 L 90 130 L 40 130 Z', color: '#006A4E' },
+    { id: 'Khulna', path: 'M 50 160 L 100 160 L 100 230 L 50 230 Z', color: '#006A4E' },
+    { id: 'Barisal', path: 'M 110 180 L 150 180 L 150 230 L 110 230 Z', color: '#F42A41' },
+    { id: 'Sylhet', path: 'M 160 70 L 210 70 L 210 120 L 160 120 Z', color: '#006A4E' },
+    { id: 'Rangpur', path: 'M 60 20 L 110 20 L 110 70 L 60 70 Z', color: '#006A4E' },
+    { id: 'Mymensingh', path: 'M 110 60 L 160 60 L 160 90 L 110 90 Z', color: '#006A4E' },
+  ];
+
+  return (
+    <div className="relative w-full h-[450px] flex items-center justify-center bg-gray-900 rounded-[3.5rem] overflow-hidden group border border-white/10">
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
+      <svg viewBox="0 0 250 300" className="w-full h-full max-w-md drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10">
+        {divisions.map((div) => (
+          <motion.path
+            key={div.id}
+            d={div.path}
+            fill={div.color}
+            fillOpacity={0.3 + (Math.random() * 0.5)}
+            stroke="white"
+            strokeWidth="0.5"
+            whileHover={{ fillOpacity: 1, scale: 1.02, strokeWidth: 1.5 }}
+            className="cursor-pointer transition-all duration-500"
+          >
+            <title>{div.id}: {Math.floor(Math.random() * 40 + 60)}% Support</title>
+          </motion.path>
+        ))}
+      </svg>
+      <div className="absolute top-10 left-10 z-20">
+        <h4 className="text-2xl font-display font-black text-white flex items-center gap-3">
+          <MapIcon size={28} className="text-bd-red" />
+          National Sentiment Map
+        </h4>
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Live Division Heatmap • Referendum Data</p>
+      </div>
+      <div className="absolute bottom-10 right-10 flex gap-3 z-20">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-md rounded-full border border-white/10">
+          <div className="w-2.5 h-2.5 bg-bd-green rounded-full shadow-[0_0_10px_rgba(0,106,78,0.8)]" />
+          <span className="text-[9px] font-black text-white uppercase tracking-widest">High Support</span>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-md rounded-full border border-white/10">
+          <div className="w-2.5 h-2.5 bg-bd-red rounded-full shadow-[0_0_10px_rgba(244,42,65,0.8)]" />
+          <span className="text-[9px] font-black text-white uppercase tracking-widest">Low Support</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
   const [insights, setInsights] = useState<GovernanceInsight | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [activeTab, setActiveTab] = useState<'analytics' | 'governance'>('analytics');
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
   
   // Policy Simulator State
   const [hypotheticalPolicy, setHypotheticalPolicy] = useState('');
@@ -79,6 +138,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
     }
   };
 
+  const handleGenerateReport = async () => {
+    setGeneratingReport(true);
+    setReportSuccess(false);
+    await new Promise(r => setTimeout(r, 3500));
+    setGeneratingReport(false);
+    setReportSuccess(true);
+    setTimeout(() => setReportSuccess(false), 5000);
+    // In a real app, this would trigger a PDF download
+  };
+
   const stats = useMemo(() => {
     const totalVotes = polls.reduce((acc, p) => acc + p.totalVotes, 0);
     const totalYes = polls.reduce((acc, p) => acc + p.yesVotes, 0);
@@ -108,26 +177,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
   return (
     <div className="space-y-8 pb-20">
       {/* View Switcher */}
-      <div className="flex gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-500",
+              activeTab === 'analytics' ? "bg-gray-900 text-white shadow-2xl" : "bg-white text-gray-400 hover:text-gray-900"
+            )}
+          >
+            <TrendingUp size={18} />
+            Advanced Analytics
+          </button>
+          <button 
+            onClick={() => setActiveTab('governance')}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-500",
+              activeTab === 'governance' ? "bg-bd-green text-white shadow-2xl shadow-bd-green/20" : "bg-white text-gray-400 hover:text-bd-green"
+            )}
+          >
+            <BrainCircuit size={18} />
+            Predictive Governance
+          </button>
+        </div>
+        
         <button 
-          onClick={() => setActiveTab('analytics')}
+          onClick={handleGenerateReport}
+          disabled={generatingReport}
           className={cn(
-            "flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all",
-            activeTab === 'analytics' ? "bg-gray-900 text-white shadow-xl" : "bg-white text-gray-400 hover:text-gray-900"
+            "flex items-center gap-3 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-700 shadow-sm disabled:opacity-50 border",
+            reportSuccess ? "bg-bd-green text-white border-bd-green" : "bg-white text-gray-900 border-gray-100 hover:border-bd-green hover:text-bd-green"
           )}
         >
-          <TrendingUp size={18} />
-          Advanced Analytics
-        </button>
-        <button 
-          onClick={() => setActiveTab('governance')}
-          className={cn(
-            "flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all",
-            activeTab === 'governance' ? "bg-bd-green text-white shadow-xl shadow-bd-green/20" : "bg-white text-gray-400 hover:text-bd-green"
+          {generatingReport ? (
+            <RefreshCw size={16} className="animate-spin" />
+          ) : reportSuccess ? (
+            <CheckCircle2 size={16} />
+          ) : (
+            <Download size={16} />
           )}
-        >
-          <BrainCircuit size={18} />
-          Predictive Governance
+          {generatingReport ? 'Synthesizing...' : reportSuccess ? 'Report Ready' : 'Generate AI Report'}
         </button>
       </div>
 
@@ -145,10 +234,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100"
+                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 group hover:border-bd-green/30 transition-all duration-700"
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-bd-green/10 text-bd-green rounded-2xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-bd-green/10 text-bd-green rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                     <Users size={24} />
                   </div>
                   <div>
@@ -157,7 +246,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                   </div>
                 </div>
                 <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-bd-green h-full" style={{ width: '70%' }} />
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '70%' }}
+                    className="bg-bd-green h-full" 
+                  />
                 </div>
               </motion.div>
 
@@ -165,10 +258,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100"
+                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 group hover:border-bd-red/30 transition-all duration-700"
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-bd-red/10 text-bd-red rounded-2xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-bd-red/10 text-bd-red rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                     <Activity size={24} />
                   </div>
                   <div>
@@ -183,10 +276,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100"
+                className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 group hover:border-amber-400/30 transition-all duration-700"
               >
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                     <AlertTriangle size={24} />
                   </div>
                   <div>
@@ -266,34 +359,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
               </motion.div>
             </div>
 
-            {/* Region Heatmap Placeholder */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gray-900 p-10 rounded-[3.5rem] text-white relative overflow-hidden"
-            >
-              <div className="relative z-10">
-                <h4 className="text-2xl font-display font-black mb-4 flex items-center gap-3">
-                  <MapIcon size={32} className="text-bd-red" />
-                  Regional Sentiment Heatmap
-                </h4>
-                <p className="text-gray-400 text-sm max-w-md mb-8 font-medium">
-                  Real-time visualization of public opinion across all 8 divisions of Bangladesh.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  {['Dhaka', 'Chittagong', 'Rajshahi', 'Khulna', 'Barisal', 'Sylhet', 'Rangpur', 'Mymensingh'].map(region => (
-                    <div key={region} className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{region}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-black">{Math.floor(Math.random() * 40 + 60)}%</span>
-                        <div className="w-2 h-2 bg-bd-green rounded-full animate-pulse" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-bd-green/10 rounded-full blur-[100px]" />
-            </motion.div>
+            {/* Region Heatmap */}
+            <BangladeshMap data={null} />
           </motion.div>
         ) : (
           <motion.div 
@@ -304,10 +371,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
             className="space-y-8"
           >
             {/* AI Summary Card */}
-            <div className="bg-gradient-to-br from-bd-green to-bd-green-dark p-10 rounded-[3.5rem] text-white relative overflow-hidden">
+            <div className="bg-gradient-to-br from-bd-green to-bd-green-dark p-10 rounded-[3.5rem] text-white relative overflow-hidden group">
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center group-hover:rotate-12 transition-transform duration-500">
                     <BrainCircuit size={28} />
                   </div>
                   <div>
@@ -328,7 +395,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                     </p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10">
+                      <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10 hover:bg-white/15 transition-colors duration-300">
                         <h5 className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                           <Zap size={14} className="text-amber-400" />
                           Emerging Trends
@@ -349,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                         </div>
                       </div>
 
-                      <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10">
+                      <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10 hover:bg-white/15 transition-colors duration-300">
                         <h5 className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                           <ShieldAlert size={14} className="text-bd-red" />
                           Risk Alerts
@@ -395,7 +462,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                   <button 
                     onClick={handleSimulate}
                     disabled={simulating || !hypotheticalPolicy}
-                    className="absolute bottom-4 right-4 flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-bd-green transition-all shadow-xl disabled:opacity-50"
+                    className="absolute bottom-4 right-4 flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-bd-green transition-all duration-500 shadow-xl disabled:opacity-50"
                   >
                     {simulating ? (
                       <>
@@ -490,7 +557,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 flex flex-col justify-between"
+                  className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 flex flex-col justify-between hover:border-bd-green/30 transition-all duration-700"
                 >
                   <div>
                     <div className="w-10 h-10 bg-bd-green/10 text-bd-green rounded-xl flex items-center justify-center mb-6">

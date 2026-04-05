@@ -38,7 +38,8 @@ import {
   Settings2,
   Newspaper,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Activity
 } from 'lucide-react';
 import { AdminModeration } from './components/AdminModeration';
 import { Dashboard } from './components/Dashboard';
@@ -512,9 +513,10 @@ const AdminPanel: React.FC = () => {
 interface HeaderProps {
   view: 'active' | 'archived' | 'moderation' | 'dashboard' | 'legal';
   setView: (view: 'active' | 'archived' | 'moderation' | 'dashboard' | 'legal') => void;
+  setShowTrustModal: (show: boolean) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ view, setView }) => {
+const Header: React.FC<HeaderProps> = ({ view, setView, setShowTrustModal }) => {
   const { profile, login, logout, user, isAdmin } = useAuth();
 
   return (
@@ -591,13 +593,16 @@ const Header: React.FC<HeaderProps> = ({ view, setView }) => {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-[10px] font-black text-gray-900 tracking-tight">{profile?.displayName}</p>
-              <div className="flex items-center justify-end gap-1 text-[8px] text-bd-green font-black tracking-widest uppercase">
+              <button 
+                onClick={() => setShowTrustModal(true)}
+                className="flex items-center justify-end gap-1 text-[8px] text-bd-green font-black tracking-widest uppercase hover:text-bd-red transition-colors"
+              >
                 {profile?.role === 'admin' && (
                   <span className="bg-bd-red text-white px-1.5 py-0.5 rounded text-[7px] mr-1 shadow-sm">ADMIN</span>
                 )}
                 <ShieldCheck size={10} className="text-bd-red" />
                 Trust: {Math.round((profile?.trustScore || 0) * 100)}%
-              </div>
+              </button>
             </div>
             <button onClick={logout} className="p-2 text-gray-400 hover:text-bd-red transition-all duration-300 hover:bg-bd-red/5 rounded-lg">
               <LogOut size={18} />
@@ -676,6 +681,7 @@ const AppContent: React.FC = () => {
   const [verifying, setVerifying] = useState(false);
   const [showNIDModal, setShowNIDModal] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showTrustModal, setShowTrustModal] = useState(false);
   const [phoneStep, setPhoneStep] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -743,7 +749,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <Header view={view} setView={setView} />
+      <Header view={view} setView={setView} setShowTrustModal={setShowTrustModal} />
       <main className="max-w-2xl mx-auto px-8 pt-12">
         {!user ? (
           <div className="text-center py-24">
@@ -820,11 +826,19 @@ const AppContent: React.FC = () => {
               )}
             </div>
 
-            <div className="premium-card p-8 mb-10">
-              <h4 className="text-xs font-black text-gray-900 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-                <ShieldCheck size={20} className="text-bd-green" />
-                Trust Infrastructure
-              </h4>
+            <div className="premium-card p-8 mb-10 group hover:border-bd-green/40 transition-all duration-700">
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2">
+                  <ShieldCheck size={20} className="text-bd-green group-hover:rotate-12 transition-transform" />
+                  Trust Infrastructure
+                </h4>
+                <button 
+                  onClick={() => setShowTrustModal(true)}
+                  className="text-[10px] font-black text-bd-green uppercase tracking-widest hover:text-bd-red transition-colors"
+                >
+                  View Breakdown
+                </button>
+              </div>
               <div className="space-y-5">
                 <button 
                   onClick={() => setShowNIDModal(true)}
@@ -1021,6 +1035,103 @@ const AppContent: React.FC = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Trust Score Modal */}
+      <AnimatePresence>
+        {showTrustModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTrustModal(false)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-10">
+                <div className="flex justify-between items-center mb-10">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-bd-green/10 text-bd-green rounded-2xl flex items-center justify-center">
+                      <ShieldCheck size={32} />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-display font-black text-gray-900 tracking-tight">Trust Score</h3>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verification & Behavior Analysis</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowTrustModal(false)} className="text-gray-400 hover:text-bd-red transition-colors">
+                    <XCircle size={32} />
+                  </button>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="flex items-center justify-center py-10 relative">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-48 h-48 rounded-full border-[12px] border-gray-50 shadow-inner" />
+                    </div>
+                    <svg className="w-48 h-48 -rotate-90 relative z-10">
+                      <circle
+                        cx="96"
+                        cy="96"
+                        r="84"
+                        fill="none"
+                        stroke="#006A4E"
+                        strokeWidth="12"
+                        strokeDasharray={2 * Math.PI * 84}
+                        strokeDashoffset={2 * Math.PI * 84 * (1 - (profile?.trustScore || 0))}
+                        strokeLinecap="round"
+                        className="transition-all duration-1000 ease-out"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                      <span className="text-5xl font-display font-black text-gray-900">{Math.round((profile?.trustScore || 0) * 100)}%</span>
+                      <span className="text-[10px] font-black text-bd-green uppercase tracking-widest mt-1">Elite Citizen</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {[
+                      { label: 'NID Verification', value: profile?.nidVerified ? 40 : 0, max: 40, icon: <ShieldCheck size={16} /> },
+                      { label: 'Phone Authentication', value: profile?.phoneVerified ? 30 : 0, max: 30, icon: <Smartphone size={16} /> },
+                      { label: 'Behavior Score', value: Math.round((profile?.behaviorScore || 0) * 20), max: 20, icon: <Activity size={16} /> },
+                      { label: 'Device Trust', value: Math.round((profile?.deviceTrust || 0) * 10), max: 10, icon: <Settings2 size={16} /> },
+                    ].map((item, i) => (
+                      <div key={i} className="p-5 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center",
+                            item.value > 0 ? "bg-bd-green/10 text-bd-green" : "bg-gray-200 text-gray-400"
+                          )}>
+                            {item.icon}
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</p>
+                            <p className="text-sm font-black text-gray-900">{item.value}/{item.max} Points</p>
+                          </div>
+                        </div>
+                        {item.value === item.max && (
+                          <CheckCircle2 size={20} className="text-bd-green" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-6 bg-bd-red/5 rounded-2xl border border-bd-red/10">
+                    <p className="text-[10px] text-bd-red font-black uppercase tracking-widest leading-relaxed text-center">
+                      Trust score determines your vote weight in national referendums.
+                    </p>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
