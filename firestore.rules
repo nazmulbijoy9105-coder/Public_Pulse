@@ -100,6 +100,13 @@ service cloud.firestore {
              data.trustWeight is number;
     }
 
+    function isValidPendingQuestion(data) {
+      return hasOnlyAllowedFields(['id', 'headline', 'question', 'source', 'sourceUrl', 'category', 'status', 'createdAt']) &&
+             data.headline is string && data.headline.size() > 0 &&
+             data.question is string && data.question.size() > 0 &&
+             data.status in ['pending', 'approved', 'rejected'];
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -126,6 +133,10 @@ service cloud.firestore {
         allow create: if isAuthenticated() && isOwner(userId) && isValidVote(request.resource.data, pollId, userId);
         allow update, delete: if false; // Votes are immutable
       }
+    }
+
+    match /pending_questions/{id} {
+      allow read, write: if isAdmin();
     }
 
     // Default deny

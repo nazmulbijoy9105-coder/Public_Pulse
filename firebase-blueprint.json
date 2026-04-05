@@ -50,6 +50,22 @@
         "region": { "type": "string" }
       },
       "required": ["pollId", "userId", "answer", "trustWeight"]
+    },
+    "PendingQuestion": {
+      "title": "Pending Question",
+      "description": "AI-extracted question awaiting admin approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "headline": { "type": "string" },
+        "question": { "type": "string" },
+        "source": { "type": "string" },
+        "sourceUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["headline", "question", "source", "status"]
     }
   },
   "firestore": {
@@ -64,6 +80,10 @@
     "/polls/{pollId}/votes/{userId}": {
       "schema": "Vote",
       "description": "Individual votes for a specific poll."
+    },
+    "/pending_questions/{id}": {
+      "schema": "PendingQuestion",
+      "description": "AI-generated questions for moderation."
     }
   }
 }

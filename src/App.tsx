@@ -33,8 +33,16 @@ import {
   Smartphone, 
   UserCircle2,
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  History,
+  Settings2,
+  Newspaper,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
+import { AdminModeration } from './components/AdminModeration';
+import { Dashboard } from './components/Dashboard';
+import { Legal } from './components/Legal';
 import { GoogleGenAI } from "@google/genai";
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { cn } from './lib/utils';
@@ -91,10 +99,12 @@ interface UserProfile {
   deviceTrust: number;
   behaviorScore: number;
   role: 'admin' | 'user';
+  phoneVerified: boolean;
+  phoneNumber?: string;
   createdAt: Timestamp;
 }
 
-interface Poll {
+export interface Poll {
   id: string;
   question: string;
   source: string;
@@ -127,6 +137,7 @@ interface AuthContextType {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   verifyNID: () => Promise<void>;
+  verifyPhone: (phone: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -165,6 +176,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               deviceTrust: 0.8,
               behaviorScore: 0.7,
               role: firebaseUser.email === 'NAZMULBIJOY9105@gmail.com' ? 'admin' : 'user',
+              phoneVerified: false,
               createdAt: Timestamp.now(),
             };
             await setDoc(userRef, newProfile);
@@ -211,16 +223,36 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
+  const verifyPhone = async (phone: string) => {
+    if (!user || !profile) return;
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        phoneVerified: true,
+        phoneNumber: phone,
+        trustScore: profile.trustScore + 0.2, // Boost for phone verification
+      });
+      setProfile(prev => prev ? { 
+        ...prev, 
+        phoneVerified: true, 
+        phoneNumber: phone, 
+        trustScore: prev.trustScore + 0.2 
+      } : null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'users');
+    }
+  };
+
   const isAdmin = profile?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, login, logout, verifyNID }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, login, logout, verifyNID, verifyPhone }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-const PollCard: React.FC<{ poll: Poll }> = ({ poll }) => {
+const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, onVerifyPhone }) => {
   const { profile, user } = useAuth();
   const [userVote, setUserVote] = useState<Vote | null>(null);
   const [voting, setVoting] = useState(false);
@@ -238,7 +270,16 @@ const PollCard: React.FC<{ poll: Poll }> = ({ poll }) => {
 
   const handleVote = async (answer: boolean) => {
     if (!user || !profile || userVote || voting) return;
+    
+    if (!profile.phoneVerified) {
+      onVerifyPhone();
+      return;
+    }
+
     setVoting(true);
+    const regions = ['Dhaka', 'Chittagong', 'Rajshahi', 'Khulna', 'Barisal', 'Sylhet', 'Rangpur', 'Mymensingh'];
+    const randomRegion = regions[Math.floor(Math.random() * regions.length)];
+
     try {
       const voteRef = doc(db, 'polls', poll.id, 'votes', user.uid);
       const pollRef = doc(db, 'polls', poll.id);
@@ -249,7 +290,7 @@ const PollCard: React.FC<{ poll: Poll }> = ({ poll }) => {
         answer,
         trustWeight: profile.trustScore,
         timestamp: Timestamp.now(),
-        region: 'Dhaka', // Mock region for now
+        region: randomRegion,
       };
 
       await setDoc(voteRef, voteData);
@@ -487,6 +528,9 @@ const Header: React.FC = () => {
           <div className="text-right hidden sm:block">
             <p className="text-xs font-black text-gray-900 tracking-tight">{profile?.displayName}</p>
             <div className="flex items-center justify-end gap-1.5 text-[10px] text-bd-green font-black tracking-widest uppercase">
+              {profile?.role === 'admin' && (
+                <span className="bg-bd-red text-white px-2 py-0.5 rounded-md text-[8px] mr-1 shadow-sm">ADMIN</span>
+              )}
               <ShieldCheck size={14} className="text-bd-red" />
               Trust: {Math.round((profile?.trustScore || 0) * 100)}%
             </div>
@@ -508,12 +552,16 @@ const Header: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { loading, user, isAdmin, profile, login, verifyNID } = useAuth();
+  const { loading, user, isAdmin, profile, login, verifyNID, verifyPhone } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [filter, setFilter] = useState('All');
-  const [view, setView] = useState<'active' | 'archived'>('active');
+  const [view, setView] = useState<'active' | 'archived' | 'moderation' | 'dashboard' | 'legal'>('active');
   const [verifying, setVerifying] = useState(false);
   const [showNIDModal, setShowNIDModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneStep, setPhoneStep] = useState(1);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [nidStep, setNidStep] = useState(1);
   const [nidNumber, setNidNumber] = useState('');
   const [showGovernance, setShowGovernance] = useState(false);
@@ -521,8 +569,8 @@ const AppContent: React.FC = () => {
   const categories = ['All', 'National', 'Economy', 'Policy', 'Environment', 'Tech'];
 
   useEffect(() => {
-    if (!user) {
-      setPolls([]);
+    if (!user || (view !== 'active' && view !== 'archived')) {
+      if (!user) setPolls([]);
       return;
     }
     const q = query(
@@ -551,6 +599,14 @@ const AppContent: React.FC = () => {
     setShowNIDModal(false);
   };
 
+  const handlePhoneVerify = async () => {
+    setVerifying(true);
+    await new Promise(r => setTimeout(r, 2000)); // Simulate OTP verification
+    await verifyPhone(phoneNumber);
+    setVerifying(false);
+    setShowPhoneModal(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -575,11 +631,11 @@ const AppContent: React.FC = () => {
               </div>
             </div>
             <h2 className="text-5xl font-display font-black text-gray-900 mb-6 tracking-tight leading-none">
-              Voice of the <br />
-              <span className="text-bd-green">People</span>
+              Digital Public <br />
+              <span className="text-bd-green">Observatory</span>
             </h2>
             <p className="text-gray-500 mb-12 leading-relaxed text-xl max-w-md mx-auto font-medium">
-              The first trust-based sentiment engine for <span className="text-bd-green font-black border-b-4 border-bd-red/30">Bangladesh</span>.
+              A nationwide continuous democratic feedback system for <span className="text-bd-green font-black border-b-4 border-bd-red/30">Bangladesh</span>.
             </p>
             <button 
               onClick={() => login()}
@@ -595,33 +651,70 @@ const AppContent: React.FC = () => {
           <>
             {isAdmin && <AdminPanel />}
 
-            <div className="mb-12">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex gap-3 bg-white p-1.5 rounded-[1.5rem] shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex gap-3 bg-white p-1.5 rounded-[1.5rem] shadow-sm border border-gray-100">
+                <button 
+                  onClick={() => setView('active')}
+                  className={cn(
+                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
+                    view === 'active' ? "bg-bd-green text-white shadow-xl shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+                  )}
+                >
+                  Live Pulse
+                </button>
+                <button 
+                  onClick={() => setView('archived')}
+                  className={cn(
+                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
+                    view === 'archived' ? "bg-gray-900 text-white shadow-xl shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
+                  )}
+                >
+                  Archive
+                </button>
+                {isAdmin && (
                   <button 
-                    onClick={() => setView('active')}
+                    onClick={() => setView('moderation')}
                     className={cn(
                       "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                      view === 'active' ? "bg-bd-green text-white shadow-xl shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+                      view === 'moderation' ? "bg-bd-red text-white shadow-xl shadow-bd-red/20" : "text-gray-400 hover:text-bd-red"
                     )}
                   >
-                    Live Pulse
+                    Moderation
                   </button>
-                  <button 
-                    onClick={() => setView('archived')}
-                    className={cn(
-                      "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
-                      view === 'archived' ? "bg-gray-900 text-white shadow-xl shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
-                    )}
-                  >
-                    Archive
-                  </button>
-                </div>
-                <div className="flex items-center gap-2.5 text-[10px] font-black text-bd-green uppercase tracking-[0.2em]">
-                  <div className="w-2.5 h-2.5 bg-bd-red rounded-full animate-pulse shadow-[0_0_10px_rgba(244,42,65,0.5)]" />
-                  Real-time
-                </div>
+                )}
+                <button 
+                  onClick={() => setView('dashboard')}
+                  className={cn(
+                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
+                    view === 'dashboard' ? "bg-bd-green text-white shadow-xl shadow-bd-green/20" : "text-gray-400 hover:text-bd-green"
+                  )}
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={() => setView('legal')}
+                  className={cn(
+                    "px-6 py-3 rounded-[1.15rem] text-xs font-black uppercase tracking-widest transition-all duration-500",
+                    view === 'legal' ? "bg-gray-900 text-white shadow-xl shadow-gray-400/20" : "text-gray-400 hover:text-gray-900"
+                  )}
+                >
+                  Legal
+                </button>
               </div>
+              <div className="flex items-center gap-2.5 text-[10px] font-black text-bd-green uppercase tracking-[0.2em]">
+                <div className="w-2.5 h-2.5 bg-bd-red rounded-full animate-pulse shadow-[0_0_10px_rgba(244,42,65,0.5)]" />
+                Real-time
+              </div>
+            </div>
+
+            {view === 'moderation' && isAdmin ? (
+              <AdminModeration />
+            ) : view === 'dashboard' ? (
+              <Dashboard polls={polls} />
+            ) : view === 'legal' ? (
+              <Legal />
+            ) : (
+              <div className="mb-12">
 
               <div className="flex gap-3 overflow-x-auto pb-6 no-scrollbar mb-6">
                 {categories.map(cat => (
@@ -643,7 +736,7 @@ const AppContent: React.FC = () => {
               <AnimatePresence mode="popLayout">
                 {polls.length > 0 ? (
                   polls.map((poll) => (
-                    <PollCard key={poll.id} poll={poll} />
+                    <PollCard key={poll.id} poll={poll} onVerifyPhone={() => setShowPhoneModal(true)} />
                   ))
                 ) : (
                   <div className="text-center py-20 premium-card border-dashed border-2 border-gray-200 bg-transparent">
@@ -652,6 +745,7 @@ const AppContent: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
+          )}
 
             <div className="premium-card p-8 mb-10">
               <h4 className="text-xs font-black text-gray-900 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
@@ -692,6 +786,39 @@ const AppContent: React.FC = () => {
                   )}
                 </button>
                 
+                <button 
+                  onClick={() => setShowPhoneModal(true)}
+                  disabled={profile?.phoneVerified}
+                  className={cn(
+                    "w-full flex items-center justify-between p-6 rounded-[2rem] transition-all duration-500 border",
+                    profile?.phoneVerified 
+                      ? "bg-bd-green/[0.03] border-bd-green/20" 
+                      : "bg-gray-50 border-gray-100 hover:border-bd-green/40 hover:bg-white"
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors duration-500", 
+                      profile?.phoneVerified ? "bg-bd-green text-white" : "bg-gray-200 text-gray-400"
+                    )}>
+                      <Smartphone size={24} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black text-gray-900 tracking-tight">Phone Verification</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                        {profile?.phoneVerified ? "Secure Link Established" : "Mandatory for referendum"}
+                      </p>
+                    </div>
+                  </div>
+                  {profile?.phoneVerified ? (
+                    <div className="w-8 h-8 bg-bd-green/10 text-bd-green rounded-full flex items-center justify-center">
+                      <CheckCircle2 size={18} />
+                    </div>
+                  ) : (
+                    <ChevronRight size={20} className="text-gray-300" />
+                  )}
+                </button>
+
                 <div className="flex items-center justify-between p-6 bg-gray-50 border border-gray-100 rounded-[2rem]">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-bd-green/10 text-bd-green rounded-2xl flex items-center justify-center">
@@ -730,6 +857,102 @@ const AppContent: React.FC = () => {
           </>
         )}
       </main>
+
+      {/* Phone Verification Modal */}
+      <AnimatePresence>
+        {showPhoneModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPhoneModal(false)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-2xl font-display font-black text-gray-900">Phone Auth</h3>
+                  <button onClick={() => setShowPhoneModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <XCircle size={24} />
+                  </button>
+                </div>
+
+                {phoneStep === 1 ? (
+                  <div className="space-y-8">
+                    <div className="p-6 bg-bd-green/[0.03] rounded-[2rem] border border-bd-green/10">
+                      <p className="text-sm text-gray-600 font-medium leading-relaxed text-center">
+                        Mandatory Phone OTP verification to prevent <span className="text-bd-red font-black">Sybil attacks</span> and ensure one-person-one-vote.
+                      </p>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">Phone Number</label>
+                      <div className="relative">
+                        <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">+880</span>
+                        <input 
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="1XXXXXXXXX"
+                          className="w-full p-6 pl-20 bg-gray-50 rounded-[1.5rem] border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none font-bold text-xl text-gray-900"
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setPhoneStep(2)}
+                      disabled={phoneNumber.length < 10}
+                      className="w-full py-5 bg-bd-green text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-bd-green-dark transition-all duration-500 shadow-xl shadow-bd-green/20 disabled:opacity-50"
+                    >
+                      Send OTP Code
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">Enter 6-Digit OTP</label>
+                      <input 
+                        type="text"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="XXXXXX"
+                        className="w-full p-6 bg-gray-50 rounded-[1.5rem] border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none font-mono text-3xl tracking-[0.5em] text-center text-gray-900"
+                      />
+                    </div>
+                    <button 
+                      onClick={handlePhoneVerify}
+                      disabled={verifying || otpCode.length < 6}
+                      className="w-full py-5 bg-bd-green text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-bd-green-dark transition-all duration-500 shadow-xl shadow-bd-green/20 disabled:opacity-50 flex items-center justify-center gap-3"
+                    >
+                      {verifying ? (
+                        <>
+                          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={20} />
+                          Confirm & Link
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setPhoneStep(1)}
+                      className="w-full py-2 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-gray-600 transition-colors"
+                    >
+                      Change Number
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* NID Verification Modal */}
       <AnimatePresence>

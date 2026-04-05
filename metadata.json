@@ -1,6 +1,6 @@
 {
-  "name": "Public Pulse v3",
-  "description": "Elite public sentiment infrastructure with trust-based voting, real-time analytics, and AI-driven neutral content generation.",
+  "name": "Digital Public Opinion Observatory",
+  "description": "A nationwide continuous democratic feedback system for Bangladesh. Real-time policy voting and sentiment analytics.",
   "requestFramePermissions": [
     "geolocation"
   ]
