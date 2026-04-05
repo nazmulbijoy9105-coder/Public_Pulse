@@ -70,7 +70,8 @@ export const AdminModeration: React.FC = () => {
     try {
       const refined = await refineQuestion(item.headline);
       await updateDoc(doc(db, 'pending_questions', item.id), {
-        question: refined
+        question: refined.question,
+        category: refined.category
       });
     } catch (error) {
       console.error('Refinement failed:', error);
