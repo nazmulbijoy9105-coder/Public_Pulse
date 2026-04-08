@@ -199,10 +199,12 @@ async function startServer() {
 
           // Take top 10 headlines to avoid token limits but give AI enough context
           const topHeadlines = headlines.slice(0, 10).join("\n- ");
+          const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
           const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Analyze these current news headlines from ${source.name} (${source.url}) and select the top 3 most impactful ones for public interest. 
+            contents: `Analyze these current news headlines from ${source.name} (${source.url}) for today, ${currentDate}.
+            Select the top 3 most impactful ones for public interest. 
             For each selected headline, generate a neutral YES/NO public opinion question for a national polling platform in Bangladesh.
             
             Headlines:
@@ -218,6 +220,7 @@ async function startServer() {
             - headline: the original headline
             - question: the generated YES/NO question
             - category: one of ['National', 'Economy', 'Policy', 'Environment', 'Tech']
+            - publishedDate: the date of the news (use "${currentDate}" if not specified in headline)
             `,
             config: {
               responseMimeType: "application/json"

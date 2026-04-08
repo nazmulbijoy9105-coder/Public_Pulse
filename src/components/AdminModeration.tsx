@@ -175,7 +175,7 @@ export const AdminModeration: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     <Clock size={12} />
-                    {item.source}
+                    {item.source} • {item.publishedDate}
                   </div>
                 </div>
 

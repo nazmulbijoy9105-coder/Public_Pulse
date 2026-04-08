@@ -10,6 +10,7 @@ export interface PendingQuestion {
   sourceUrl: string;
   category: string;
   status: 'pending' | 'approved' | 'rejected';
+  publishedDate?: string;
   createdAt: Timestamp;
 }
 
@@ -27,6 +28,7 @@ export const scrapeAndGenerateQuestions = async () => {
         sourceUrl: item.sourceUrl,
         category: item.category || 'National',
         status: 'pending',
+        publishedDate: item.publishedDate,
         createdAt: Timestamp.now()
       };
       

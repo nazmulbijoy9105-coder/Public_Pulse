@@ -65,6 +65,7 @@
         "sourceUrl": { "type": "string" },
         "category": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "publishedDate": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["headline", "question", "source", "status"]

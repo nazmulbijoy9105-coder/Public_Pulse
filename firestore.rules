@@ -100,7 +100,7 @@ service cloud.firestore {
     }
 
     function isValidPendingQuestion(data) {
-      return hasOnlyAllowedFields(['id', 'headline', 'question', 'source', 'sourceUrl', 'category', 'status', 'createdAt']) &&
+      return hasOnlyAllowedFields(['id', 'headline', 'question', 'source', 'sourceUrl', 'category', 'status', 'publishedDate', 'createdAt']) &&
              data.headline is string && data.headline.size() > 0 &&
              data.question is string && data.question.size() > 0 &&
              data.status in ['pending', 'approved', 'rejected'];
