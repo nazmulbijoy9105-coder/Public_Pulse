@@ -14,6 +14,8 @@
         "deviceTrust": { "type": "number" },
         "behaviorScore": { "type": "number" },
         "role": { "type": "string", "enum": ["admin", "user"] },
+        "phoneVerified": { "type": "boolean" },
+        "phoneNumber": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "role", "trustScore"]

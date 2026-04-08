@@ -76,7 +76,7 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'displayName', 'email', 'photoURL', 'trustScore', 'nidVerified', 'deviceTrust', 'behaviorScore', 'role', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'displayName', 'email', 'photoURL', 'trustScore', 'nidVerified', 'deviceTrust', 'behaviorScore', 'role', 'createdAt', 'phoneVerified', 'phoneNumber']) &&
              data.uid == request.auth.uid &&
              data.email is string && isValidEmail(data.email) &&
              data.trustScore is number && data.trustScore >= 0 && data.trustScore <= 1 &&
@@ -111,7 +111,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if true;
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data) &&
                       (request.resource.data.role == 'user' || isAdmin());
       allow update: if isAuthenticated() && isValidUser(request.resource.data) &&

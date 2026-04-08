@@ -4,6 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import axios from "axios";
+import * as cheerio from "cheerio";
 
 dotenv.config();
 
@@ -168,16 +170,46 @@ async function startServer() {
     try {
       const ai = getAiClient();
       const allResults = [];
+      const axiosInstance = axios.create({
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 10000
+      });
 
       for (const source of NEWS_SOURCES) {
         try {
+          console.log(`Scraping ${source.name}...`);
+          const htmlResponse = await axiosInstance.get(source.url);
+          const $ = cheerio.load(htmlResponse.data);
+          
+          // Extract potential headlines (h1, h2, h3)
+          const headlines: string[] = [];
+          $('h1, h2, h3').each((_, el) => {
+            const text = $(el).text().trim();
+            if (text.length > 20 && text.length < 200 && !headlines.includes(text)) {
+              headlines.push(text);
+            }
+          });
+
+          if (headlines.length === 0) {
+            console.warn(`No headlines found for ${source.name}`);
+            continue;
+          }
+
+          // Take top 10 headlines to avoid token limits but give AI enough context
+          const topHeadlines = headlines.slice(0, 10).join("\n- ");
+
           const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Extract the top 3 news headlines from ${source.url} and for each headline, generate a neutral YES/NO public opinion question. 
+            contents: `Analyze these current news headlines from ${source.name} (${source.url}) and select the top 3 most impactful ones for public interest. 
+            For each selected headline, generate a neutral YES/NO public opinion question for a national polling platform in Bangladesh.
+            
+            Headlines:
+            - ${topHeadlines}
             
             Rules for questions:
-            - Neutral tone
-            - No bias
+            - Neutral tone (no bias)
             - Max 20 words
             - Answer must be Yes/No
             - Focus on policy, governance, and public interest
@@ -188,7 +220,6 @@ async function startServer() {
             - category: one of ['National', 'Economy', 'Policy', 'Environment', 'Tech']
             `,
             config: {
-              tools: [{ urlContext: {} }],
               responseMimeType: "application/json"
             }
           });

@@ -157,14 +157,11 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('Auth State Changed:', firebaseUser?.uid, firebaseUser?.email);
       setUser(firebaseUser);
       if (firebaseUser) {
         const userRef = doc(db, 'users', firebaseUser.uid);
-        console.log('Fetching user document:', userRef.path);
         try {
           const userSnap = await getDoc(userRef);
-          console.log('User document exists:', userSnap.exists());
           if (userSnap.exists()) {
             setProfile(userSnap.data() as UserProfile);
           } else {
@@ -713,7 +710,7 @@ const AppContent: React.FC = () => {
     q = query(q, orderBy('createdAt', 'desc'), limit(pollLimit));
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(doc => doc.data() as Poll);
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Poll));
       setPolls(data);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'polls');
