@@ -847,10 +847,6 @@ const AppContent: React.FC = () => {
                 End-to-End Encrypted Participation
               </p>
             </div>
-
-            <div className="opacity-70 origin-top transition-all duration-1000">
-               <Dashboard polls={polls} user={null} profile={null} onViewActivePolls={() => login()} />
-            </div>
           </div>
         ) : (
           <>

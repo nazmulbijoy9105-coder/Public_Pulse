@@ -2,7 +2,6 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import dotenv from "dotenv";
 import axios from "axios";
 import * as cheerio from "cheerio";
@@ -27,15 +26,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Gemini AI Setup (Server-side)
-  const getAiClient = () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY environment variable is required");
-    }
-    return new GoogleGenerativeAI(apiKey);
-  };
-
   const NEWS_SOURCES = [
     { name: "Prothom Alo", url: "https://www.prothomalo.com/bangladesh" },
     { name: "The Daily Star", url: "https://www.thedailystar.net/bangladesh" },
@@ -44,34 +34,8 @@ async function startServer() {
     { name: "Kaler Kantho", url: "https://www.kalerkantho.com/online/national" }
   ];
 
-  const getAiModel = (modelName: string = "gemini-2.0-flash") => {
-    const ai = getAiClient();
-    return ai.getGenerativeModel({ 
-      model: modelName,
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-      ],
-    });
-  };
-
   const performScrapeAndSave = async () => {
     console.log(`[${new Date().toISOString()}] Starting automated news scrape...`);
-    const ai = getAiClient();
     const axiosInstance = axios.create({
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -90,7 +54,6 @@ async function startServer() {
           const headline = $(el).text().trim();
           if (headline.length > 20 && headline.length < 200) {
             // Attempt to find the closest timestamp associated with this headline
-            // Many BD news sites use <time> tags or specific classes for timestamps
             const context = $(el).closest('article, .story-element, .card, .content, .item');
             const timeElement = context.find('time').first().length ? context.find('time').first() :
                                context.find('.time, .date, .timestamp, .publish-time, .story-time').first().length ? context.find('.time, .date, .timestamp, .publish-time, .story-time').first() :
@@ -103,79 +66,29 @@ async function startServer() {
 
         if (newsItems.length === 0) continue;
 
-        // Try to get a page-level 'last modified' if individual times aren't found
-        const pageTime = $('meta[property="article:modified_time"]').attr('content') || 
-                        $('meta[name="last-modified"]').attr('content') ||
-                        new Date().toISOString();
-
-        const newsContext = newsItems.slice(0, 15).map(item => 
-          `- Headline: ${item.headline}${item.time ? ` [Published: ${item.time}]` : ''}`
-        ).join("\n");
-
-        const currentDate = new Date().toLocaleString('en-GB', { 
-          day: 'numeric', 
-          month: 'long', 
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
-
-        const model = getAiModel();
-        const response = await model.generateContent({
-          contents: [{ role: "user", parts: [{ text: `Analyze these news items from ${source.name} (${source.url}) as of ${currentDate}.
-          Select the top 3 most priority ones for public polling in Bangladesh.
-          
-          News Items:
-          ${newsContext}
-          
-          Rules:
-          1. Generate a neutral YES/NO question for each.
-          2. STRICTLY preservation: Use the EXACT date and time extracted from the news source if provided in the brackets [Published: ...]. 
-          3. Format date strings clearly like "April 16, 2026, 11:30 AM". 
-          4. If no specific time was found for a headline, use the page-level timestamp or current time: ${currentDate}.
-          
-          Return JSON array of objects:
-          - headline: original headline
-          - question: generated YES/NO question
-          - category: one of ['National', 'Economy', 'Policy', 'Environment', 'Tech']
-          - publishedDate: THE EXACT DATE AND TIME FROM SOURCE (REQUIRED)
-          ` }] }],
-          generationConfig: { responseMimeType: "application/json" }
-        });
-
-        let data = [];
-        try {
-          const text = response.response.text();
-          data = JSON.parse(text);
-        } catch (e) {
-          console.error("Failed to parse news extraction JSON:", e);
-          continue;
-        }
-        
-        for (const item of data) {
+        for (const item of newsItems) {
           // Check for duplicates
           const q = query(collection(db, 'pending_questions'), where('headline', '==', item.headline));
           const snap = await getDocs(q);
           
           if (snap.empty) {
             await addDoc(collection(db, 'pending_questions'), {
-              ...item,
+              headline: item.headline,
+              question: item.headline + "?", // Placeholder until refined locally
+              category: 'National', // Default
               source: source.name,
               sourceUrl: source.url,
+              publishedDate: item.time || new Date().toLocaleString(),
               status: 'pending',
               createdAt: Timestamp.now()
             });
-            console.log(`Saved new question from ${source.name}: ${item.headline}`);
-          } else {
-            console.log(`Skipped duplicate headline from ${source.name}: ${item.headline}`);
+            console.log(`Saved new raw headline from ${source.name}: ${item.headline}`);
           }
         }
       } catch (error) {
         console.error(`Failed to scrape ${source.name}:`, error);
       }
     }
-    console.log(`[${new Date().toISOString()}] Automated news scrape completed.`);
   };
 
   // Schedule daily scrape at 6:00 AM
@@ -184,147 +97,6 @@ async function startServer() {
   });
 
   // API Routes
-  app.post("/api/ai/refine", async (req, res) => {
-    try {
-      const { rawInput } = req.body;
-      if (!rawInput) {
-        return res.status(400).json({ error: "rawInput is required" });
-      }
-
-      const model = getAiModel();
-      const response = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: `Convert this news headline or topic into a neutral, unbiased YES/NO question for a public polling platform. 
-        Also provide a one-word category (e.g., National, Economy, Environment, Tech).
-        
-        Input: "${rawInput}"
-        
-        Return JSON format:
-        {
-          "question": "...",
-          "category": "..."
-        }` }] }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      });
-
-      const result = JSON.parse(response.response.text());
-      res.json(result);
-    } catch (error) {
-      console.error("AI Refinement Error:", error);
-      res.status(500).json({ error: "AI refinement failed" });
-    }
-  });
-
-  app.post("/api/ai/insights", async (req, res) => {
-    try {
-      const { polls } = req.body;
-      if (!polls) {
-        return res.status(400).json({ error: "polls are required" });
-      }
-
-      const pollsToAnalyze = Array.isArray(polls) ? polls.slice(0, 15) : [];
-      if (pollsToAnalyze.length === 0) {
-        return res.status(400).json({ error: "No polls provided for analysis" });
-      }
-
-      const model = getAiModel();
-      const pollContext = pollsToAnalyze.map((p: any) => ({
-        question: p.question,
-        category: p.category,
-        yes: p.yesVotes,
-        no: p.noVotes,
-        total: p.totalVotes
-      }));
-
-      const response = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: `Analyze these public opinion polls from Bangladesh and provide predictive governance insights.
-        
-        Poll Data: ${JSON.stringify(pollContext)}
-        
-        Return JSON format:
-        {
-          "summary": "Overall national sentiment summary...",
-          "predictions": [
-            {
-              "topic": "...",
-              "trend": "rising|falling|stable",
-              "confidence": 0.85,
-              "reasoning": "..."
-            }
-          ],
-          "policySuggestions": [
-            {
-              "title": "...",
-              "description": "...",
-              "expectedSupport": 75
-            }
-          ],
-          "riskAlerts": ["Alert 1", "Alert 2"]
-        }` }] }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      });
-
-      const result = JSON.parse(response.response.text());
-      res.json(result);
-    } catch (error) {
-      console.error("Governance Insight Error:", error);
-      res.status(500).json({ error: "Governance insight generation failed" });
-    }
-  });
-
-  app.post("/api/ai/simulate", async (req, res) => {
-    try {
-      const { policy, historicalPolls } = req.body;
-      if (!policy || !historicalPolls) {
-        return res.status(400).json({ error: "policy and historicalPolls are required" });
-      }
-
-      const pollsToAnalyze = Array.isArray(historicalPolls) ? historicalPolls.slice(0, 15) : [];
-      if (!policy || pollsToAnalyze.length === 0) {
-        return res.status(400).json({ error: "policy and historicalPolls are required" });
-      }
-
-      const model = getAiModel();
-      const pollContext = pollsToAnalyze.map((p: any) => ({
-        question: p.question,
-        category: p.category,
-        yes: p.yesVotes,
-        no: p.noVotes
-      }));
-
-      const response = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: `Predict the public reaction in Bangladesh to this hypothetical policy based on historical polling data.
-        Analyze trends in existing data to identify potential friction points and support clusters.
-        
-        Hypothetical Policy: "${policy}"
-        Historical Data Context: ${JSON.stringify(pollContext)}
-        
-        Return JSON format:
-        {
-          "predictedSupport": number,
-          "sentimentAnalysis": "string (detailed explanation)",
-          "keyConcerns": ["string", "string"],
-          "demographicImpact": "string",
-          "riskIndex": number (0 to 1),
-          "unityImpact": "positive|negative|neutral",
-          "reasoning": "string (explaining the direct link to historical data)"
-        }` }] }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
-      });
-
-      const result = JSON.parse(response.response.text());
-      res.json(result);
-    } catch (error) {
-      console.error("Policy Simulation Error:", error);
-      res.status(500).json({ error: "Policy simulation failed" });
-    }
-  });
-
   app.post("/api/ai/scrape", async (req, res) => {
     try {
       await performScrapeAndSave();

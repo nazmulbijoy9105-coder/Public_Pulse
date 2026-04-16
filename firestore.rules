@@ -1,22 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null;
+    
+    function isAuthenticated() {
+      return request.auth != null;
     }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "NAZMULBIJOY9105@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
     match /polls/{pollId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAuthenticated();
+      
       match /votes/{userId} {
-        allow read, write: if request.auth != null;
+        allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+        allow write: if isAuthenticated() && request.auth.uid == userId;
       }
     }
+
     match /pending_questions/{id} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if isAdmin();
     }
+    
     match /test/connection {
       allow read: if true;
     }
+
     match /{document=**} {
       allow read, write: if false;
     }
