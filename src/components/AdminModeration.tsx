@@ -93,6 +93,7 @@ export const AdminModeration: React.FC = () => {
         yesVotes: 0,
         noVotes: 0,
         trending: false,
+        publishedDate: item.publishedDate || '',
         createdAt: Timestamp.now(),
         createdBy: auth.currentUser?.uid
       });

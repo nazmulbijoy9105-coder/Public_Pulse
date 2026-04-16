@@ -34,6 +34,7 @@
         "yesVotes": { "type": "integer" },
         "noVotes": { "type": "integer" },
         "trending": { "type": "boolean" },
+        "publishedDate": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdBy": { "type": "string", "description": "Admin UID" }
       },

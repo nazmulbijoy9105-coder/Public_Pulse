@@ -114,6 +114,7 @@ export interface Poll {
   yesVotes: number;
   noVotes: number;
   trending: boolean;
+  publishedDate?: string;
   createdAt: Timestamp;
   createdBy: string;
 }
@@ -256,6 +257,7 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
   const { profile, user } = useAuth();
   const [userVote, setUserVote] = useState<Vote | null>(null);
   const [voting, setVoting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -267,6 +269,35 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
     });
     return unsubscribe;
   }, [poll.id, user]);
+
+  const handleShare = async () => {
+    const yesPercent = poll.totalVotes > 0 ? Math.round((poll.yesVotes / poll.totalVotes) * 100) : 0;
+    const noPercent = poll.totalVotes > 0 ? Math.round((poll.noVotes / poll.totalVotes) * 100) : 0;
+    const shareText = `📊 Public Pulse Poll Result\n\nQuestion: ${poll.question}\n\n✅ YES: ${yesPercent}%\n❌ NO: ${noPercent}%\n\nCast your vote and see live results at:`;
+    const shareUrl = window.location.origin;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Public Pulse Result',
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing:', err);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy result:', err);
+      }
+    }
+  };
 
   const handleVote = async (answer: boolean) => {
     if (!user || !profile || userVote || voting) return;
@@ -324,7 +355,7 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
 
       <div className="flex items-center gap-2 text-bd-green font-bold text-[10px] uppercase tracking-[0.2em] mb-4">
         <span className="w-1.5 h-1.5 bg-bd-red rounded-full" />
-        {poll.category} • {poll.source}
+        {poll.category} • {poll.source} {poll.publishedDate && `• ${poll.publishedDate}`}
       </div>
 
       <h3 className="text-2xl font-display font-black text-gray-900 leading-[1.2] mb-8 pr-12">
@@ -383,9 +414,26 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
           </div>
 
           <div className="pt-6 border-t border-gray-50 flex gap-4">
-            <button className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-bd-green transition-all duration-500 shadow-xl shadow-gray-200">
-              <Share2 size={20} />
-              Share Result
+            <button 
+              onClick={handleShare}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-500 shadow-xl",
+                copied 
+                  ? "bg-bd-green text-white shadow-bd-green/20" 
+                  : "bg-gray-900 text-white shadow-gray-200 hover:bg-bd-green"
+              )}
+            >
+              {copied ? (
+                <>
+                  <CheckCircle2 size={20} />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Share2 size={20} />
+                  Share Result
+                </>
+              )}
             </button>
             <button className="p-4 bg-bd-green text-white rounded-2xl hover:bg-bd-green-dark transition-all duration-500 shadow-xl shadow-bd-green/20">
               <MessageSquare size={20} />

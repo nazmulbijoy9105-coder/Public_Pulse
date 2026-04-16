@@ -84,7 +84,7 @@ service cloud.firestore {
     }
 
     function isValidPoll(data) {
-      return hasOnlyAllowedFields(['question', 'source', 'category', 'status', 'totalVotes', 'yesVotes', 'noVotes', 'trending', 'createdAt', 'createdBy']) &&
+      return hasOnlyAllowedFields(['question', 'source', 'category', 'status', 'totalVotes', 'yesVotes', 'noVotes', 'trending', 'publishedDate', 'createdAt', 'createdBy']) &&
              data.question is string && data.question.size() > 0 && data.question.size() < 500 &&
              data.status in ['active', 'archived'] &&
              data.totalVotes is int && data.yesVotes is int && data.noVotes is int;
