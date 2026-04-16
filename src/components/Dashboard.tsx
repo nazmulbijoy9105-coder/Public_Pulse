@@ -488,8 +488,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <TrendingUp size={20} className="text-bd-green" />
                   Sentiment Trends (%)
                 </h4>
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] min-h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <LineChart data={stats.trendData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="name" hide />
@@ -515,8 +515,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <PieIcon size={20} className="text-bd-red" />
                   Policy Heatmap (By Category)
                 </h4>
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] min-h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                       <Pie
                         data={stats.pieData}
@@ -791,8 +791,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Predicted Public Support</p>
                           <h5 className="text-4xl font-display font-black text-bd-green">{simulationResult.predictedSupport}%</h5>
                         </div>
-                        <div className="w-24 h-24">
-                          <ResponsiveContainer width="100%" height="100%">
+                        <div className="w-24 h-24 min-w-[96px] min-h-[96px]">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <PieChart>
                               <Pie
                                 data={[

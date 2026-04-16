@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import axios from "axios";
 import * as cheerio from "cheerio";
@@ -33,7 +33,7 @@ async function startServer() {
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY environment variable is required");
     }
-    return new GoogleGenAI({ apiKey });
+    return new GoogleGenerativeAI(apiKey);
   };
 
   const NEWS_SOURCES = [
@@ -96,9 +96,8 @@ async function startServer() {
           second: '2-digit'
         });
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Analyze these news items from ${source.name} (${source.url}) as of ${currentDate}.
+        const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+          contents: [{ role: "user", parts: [{ text: `Analyze these news items from ${source.name} (${source.url}) as of ${currentDate}.
           Select the top 3 most priority ones for public polling in Bangladesh.
           
           News Items:
@@ -115,11 +114,18 @@ async function startServer() {
           - question: generated YES/NO question
           - category: one of ['National', 'Economy', 'Policy', 'Environment', 'Tech']
           - publishedDate: THE EXACT DATE AND TIME FROM SOURCE (REQUIRED)
-          `,
-          config: { responseMimeType: "application/json" }
+          ` }] }],
+          generationConfig: { responseMimeType: "application/json" }
         });
 
-        const data = JSON.parse(response.text || "[]");
+        let data = [];
+        try {
+          const text = response.response.text();
+          data = JSON.parse(text);
+        } catch (e) {
+          console.error("Failed to parse news extraction JSON:", e);
+          continue;
+        }
         
         for (const item of data) {
           // Check for duplicates
@@ -160,9 +166,8 @@ async function startServer() {
       }
 
       const ai = getAiClient();
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Convert this news headline or topic into a neutral, unbiased YES/NO question for a public polling platform. 
+      const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+        contents: [{ role: "user", parts: [{ text: `Convert this news headline or topic into a neutral, unbiased YES/NO question for a public polling platform. 
         Also provide a one-word category (e.g., National, Economy, Environment, Tech).
         
         Input: "${rawInput}"
@@ -171,13 +176,13 @@ async function startServer() {
         {
           "question": "...",
           "category": "..."
-        }`,
-        config: {
+        }` }] }],
+        generationConfig: {
           responseMimeType: "application/json"
         }
       });
 
-      const result = JSON.parse(response.text);
+      const result = JSON.parse(response.response.text());
       res.json(result);
     } catch (error) {
       console.error("AI Refinement Error:", error);
@@ -201,9 +206,8 @@ async function startServer() {
         total: p.totalVotes
       }));
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Analyze these public opinion polls from Bangladesh and provide predictive governance insights.
+      const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+        contents: [{ role: "user", parts: [{ text: `Analyze these public opinion polls from Bangladesh and provide predictive governance insights.
         
         Poll Data: ${JSON.stringify(pollContext)}
         
@@ -226,13 +230,13 @@ async function startServer() {
             }
           ],
           "riskAlerts": ["Alert 1", "Alert 2"]
-        }`,
-        config: {
+        }` }] }],
+        generationConfig: {
           responseMimeType: "application/json"
         }
       });
 
-      const result = JSON.parse(response.text);
+      const result = JSON.parse(response.response.text());
       res.json(result);
     } catch (error) {
       console.error("Governance Insight Error:", error);
@@ -255,9 +259,8 @@ async function startServer() {
         no: p.noVotes
       }));
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Predict the public reaction in Bangladesh to this hypothetical policy based on historical polling data.
+      const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+        contents: [{ role: "user", parts: [{ text: `Predict the public reaction in Bangladesh to this hypothetical policy based on historical polling data.
         
         Hypothetical Policy: "${policy}"
         Historical Data: ${JSON.stringify(pollContext)}
@@ -268,13 +271,13 @@ async function startServer() {
           "sentimentAnalysis": "...",
           "keyConcerns": ["Concern 1", "Concern 2"],
           "demographicImpact": "..."
-        }`,
-        config: {
+        }` }] }],
+        generationConfig: {
           responseMimeType: "application/json"
         }
       });
 
-      const result = JSON.parse(response.text);
+      const result = JSON.parse(response.response.text());
       res.json(result);
     } catch (error) {
       console.error("Policy Simulation Error:", error);
