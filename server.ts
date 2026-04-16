@@ -60,39 +60,61 @@ async function startServer() {
         const htmlResponse = await axiosInstance.get(source.url);
         const $ = cheerio.load(htmlResponse.data);
         
-        const headlines: string[] = [];
+        const newsItems: { headline: string; time?: string }[] = [];
         $('h1, h2, h3').each((_, el) => {
-          const text = $(el).text().trim();
-          if (text.length > 20 && text.length < 200 && !headlines.includes(text)) {
-            headlines.push(text);
+          const headline = $(el).text().trim();
+          if (headline.length > 20 && headline.length < 200) {
+            // Attempt to find the closest timestamp associated with this headline
+            // Many BD news sites use <time> tags or specific classes for timestamps
+            const context = $(el).closest('article, .story-element, .card, .content, .item');
+            const timeElement = context.find('time').first().length ? context.find('time').first() :
+                               context.find('.time, .date, .timestamp, .publish-time, .story-time').first().length ? context.find('.time, .date, .timestamp, .publish-time, .story-time').first() :
+                               $(el).parent().find('time, .time').first();
+            
+            const timeText = timeElement.attr('datetime') || timeElement.attr('data-time') || timeElement.text().trim();
+            newsItems.push({ headline, time: timeText || undefined });
           }
         });
 
-        if (headlines.length === 0) continue;
+        if (newsItems.length === 0) continue;
 
-        const topHeadlines = headlines.slice(0, 10).join("\n- ");
-        const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        // Try to get a page-level 'last modified' if individual times aren't found
+        const pageTime = $('meta[property="article:modified_time"]').attr('content') || 
+                        $('meta[name="last-modified"]').attr('content') ||
+                        new Date().toISOString();
+
+        const newsContext = newsItems.slice(0, 15).map(item => 
+          `- Headline: ${item.headline}${item.time ? ` [Published: ${item.time}]` : ''}`
+        ).join("\n");
+
+        const currentDate = new Date().toLocaleString('en-GB', { 
+          day: 'numeric', 
+          month: 'long', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
 
         const response = await ai.models.generateContent({
           model: "gemini-3-flash-preview",
-          contents: `Analyze these current news headlines from ${source.name} (${source.url}) for today, ${currentDate}.
-          Select the top 3 most impactful ones for public interest. 
-          For each selected headline, generate a neutral YES/NO public opinion question for a national polling platform in Bangladesh.
+          contents: `Analyze these news items from ${source.name} (${source.url}) as of ${currentDate}.
+          Select the top 3 most priority ones for public polling in Bangladesh.
           
-          Headlines:
-          - ${topHeadlines}
+          News Items:
+          ${newsContext}
           
-          Rules for questions:
-          - Neutral tone (no bias)
-          - Max 20 words
-          - Answer must be Yes/No
-          - Focus on policy, governance, and public interest
+          Rules:
+          1. Generate a neutral YES/NO question for each.
+          2. STRICTLY preservation: Use the EXACT date and time extracted from the news source if provided in the brackets [Published: ...]. 
+          3. Format date strings clearly like "April 16, 2026, 11:30 AM". 
+          4. If no specific time was found for a headline, use the page-level timestamp or current time: ${currentDate}.
           
-          Return the result as a JSON array of objects with these fields:
-          - headline: the original headline
-          - question: the generated YES/NO question
+          Return JSON array of objects:
+          - headline: original headline
+          - question: generated YES/NO question
           - category: one of ['National', 'Economy', 'Policy', 'Environment', 'Tech']
-          - publishedDate: the date of the news (use "${currentDate}" if not specified in headline)
+          - publishedDate: THE EXACT DATE AND TIME FROM SOURCE (REQUIRED)
           `,
           config: { responseMimeType: "application/json" }
         });
