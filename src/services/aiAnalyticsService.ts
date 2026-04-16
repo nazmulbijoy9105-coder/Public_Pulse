@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Poll } from "../App";
+import { Poll } from "../types";
 
 export interface GovernanceInsight {
   summary: string;

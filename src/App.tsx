@@ -39,7 +39,9 @@ import {
   Newspaper,
   Clock,
   ExternalLink,
-  Activity
+  Activity,
+  Globe,
+  Lock
 } from 'lucide-react';
 import { AdminModeration } from './components/AdminModeration';
 import { Dashboard } from './components/Dashboard';
@@ -47,6 +49,7 @@ import { Legal } from './components/Legal';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { cn } from './lib/utils';
 import { refineQuestion } from './services/geminiService';
+import { Poll, UserProfile, Vote } from './types';
 
 // --- Error Boundary ---
 
@@ -85,47 +88,6 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     }
     return this.props.children;
   }
-}
-
-// --- Types ---
-
-interface UserProfile {
-  uid: string;
-  displayName: string;
-  email: string;
-  photoURL: string;
-  trustScore: number;
-  nidVerified: boolean;
-  deviceTrust: number;
-  behaviorScore: number;
-  role: 'admin' | 'user';
-  phoneVerified: boolean;
-  phoneNumber?: string;
-  createdAt: Timestamp;
-}
-
-export interface Poll {
-  id: string;
-  question: string;
-  source: string;
-  category: string;
-  status: 'active' | 'archived';
-  totalVotes: number;
-  yesVotes: number;
-  noVotes: number;
-  trending: boolean;
-  publishedDate?: string;
-  createdAt: Timestamp;
-  createdBy: string;
-}
-
-interface Vote {
-  pollId: string;
-  userId: string;
-  answer: boolean;
-  trustWeight: number;
-  timestamp: Timestamp;
-  region: string;
 }
 
 // --- Context ---
@@ -737,8 +699,7 @@ const AppContent: React.FC = () => {
   const [showGovernance, setShowGovernance] = useState(false);
 
   useEffect(() => {
-    if (!user || (view !== 'active' && view !== 'archived' && view !== 'dashboard')) {
-      if (!user) setPolls([]);
+    if (view !== 'active' && view !== 'archived' && view !== 'dashboard' && view !== 'moderation') {
       return;
     }
 
@@ -799,29 +760,56 @@ const AppContent: React.FC = () => {
       <Header view={view} setView={setView} setShowTrustModal={setShowTrustModal} />
       <main className="max-w-2xl mx-auto px-8 pt-12">
         {!user ? (
-          <div className="text-center py-24">
-            <div className="w-32 h-32 bg-bd-green/10 text-bd-green rounded-[3rem] flex items-center justify-center mx-auto mb-10 relative group">
-              <UserCircle2 size={64} className="group-hover:scale-110 transition-transform duration-500" />
-              <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-bd-red rounded-full border-[6px] border-bd-bg flex items-center justify-center shadow-xl">
-                <div className="w-4 h-4 bg-white rounded-full shadow-inner" />
+          <div className="space-y-12">
+            <div className="text-center py-16 bg-white rounded-[3.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-12">
+              <div className="w-24 h-24 bg-bd-green/10 text-bd-green rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 relative group">
+                <ShieldCheck size={48} className="group-hover:rotate-12 transition-transform duration-500" />
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-bd-red rounded-full border-4 border-white flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+                </div>
               </div>
+              <h2 className="text-4xl lg:text-5xl font-display font-black text-gray-900 mb-6 tracking-tight leading-[1.1]">
+                Democracy, <br />
+                <span className="text-bd-green">Quantified.</span>
+              </h2>
+              <p className="text-gray-500 mb-10 leading-relaxed text-lg max-w-sm mx-auto font-medium">
+                The first AI-powered referendum engine for <span className="text-bd-green font-black">Bangladesh</span>.
+              </p>
+              <button 
+                onClick={() => login()}
+                className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black text-xs shadow-xl hover:bg-bd-green transition-all active:scale-[0.98] duration-500 uppercase tracking-widest flex items-center justify-center gap-3"
+              >
+                <Globe size={18} />
+                Connect Identity & Enter
+              </button>
+              <p className="mt-6 text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+                <Lock size={12} />
+                End-to-End Encrypted Participation
+              </p>
             </div>
-            <h2 className="text-5xl font-display font-black text-gray-900 mb-6 tracking-tight leading-none">
-              Digital Public <br />
-              <span className="text-bd-green">Observatory</span>
-            </h2>
-            <p className="text-gray-500 mb-12 leading-relaxed text-xl max-w-md mx-auto font-medium">
-              A nationwide continuous democratic feedback system for <span className="text-bd-green font-black border-b-4 border-bd-red/30">Bangladesh</span>.
-            </p>
-            <button 
-              onClick={() => login()}
-              className="w-full py-6 bg-bd-green text-white rounded-[2rem] font-black text-xl shadow-[0_20px_50px_rgba(0,106,78,0.3)] hover:bg-bd-green-dark transition-all active:scale-[0.98] duration-500 uppercase tracking-widest"
-            >
-              Get Verified & Vote
-            </button>
-            <p className="mt-8 text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">
-              Join 2,34,000+ Verified Citizens
-            </p>
+
+            <div className="opacity-50 pointer-events-none filter blur-[2px] scale-[0.98] origin-top transition-all duration-1000">
+               <Dashboard polls={polls} user={null} profile={null} />
+            </div>
+            
+            <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[50] w-[90%] max-w-md">
+              <motion.div 
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                className="bg-gray-950/90 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 flex items-center justify-between shadow-2xl"
+              >
+                <div>
+                  <h4 className="text-white text-xs font-black uppercase tracking-widest">Guest Mode</h4>
+                  <p className="text-white/40 text-[9px] uppercase tracking-widest mt-1">Limited Visibility Active</p>
+                </div>
+                <button 
+                  onClick={() => login()}
+                  className="px-6 py-3 bg-bd-green text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-bd-green/20"
+                >
+                  Unlock All Data
+                </button>
+              </motion.div>
+            </div>
           </div>
         ) : (
           <>
@@ -830,7 +818,12 @@ const AppContent: React.FC = () => {
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2.5 text-[10px] font-black text-bd-green uppercase tracking-[0.2em]">
                 <div className="w-2.5 h-2.5 bg-bd-red rounded-full animate-pulse shadow-[0_0_10px_rgba(244,42,65,0.5)]" />
-                Real-time
+                In-Progress Nodes
+              </div>
+              <div className="flex items-center gap-4">
+                 <button className="text-gray-400 hover:text-gray-900 transition-colors">
+                   <Settings2 size={18} />
+                 </button>
               </div>
             </div>
 
@@ -855,7 +848,7 @@ const AppContent: React.FC = () => {
               {view === 'moderation' && isAdmin ? (
                 <AdminModeration />
               ) : view === 'dashboard' ? (
-                <Dashboard polls={polls} />
+                <Dashboard polls={polls} user={user} profile={profile} />
               ) : view === 'legal' ? (
                 <Legal />
               ) : (

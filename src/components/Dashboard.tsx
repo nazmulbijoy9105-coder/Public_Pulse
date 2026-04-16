@@ -35,14 +35,21 @@ import {
   RefreshCw,
   BarChart3,
   Globe,
-  Lock
+  Lock,
+  Plus,
+  Newspaper,
+  Settings2
 } from 'lucide-react';
-import { Poll } from '../App';
+import { Poll, UserProfile } from '../types';
 import { generateGovernanceInsights, simulatePolicyReaction, GovernanceInsight } from '../services/aiAnalyticsService';
 import { cn } from '../lib/utils';
+import { collection, query, limit, onSnapshot, getDocs, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface DashboardProps {
   polls: Poll[];
+  user: any;
+  profile: UserProfile | null;
 }
 
 const COLORS = ['#006A4E', '#F42A41', '#FFBB28', '#FF8042', '#8884d8'];
@@ -135,18 +142,27 @@ const BangladeshMap: React.FC<{ data: any }> = ({ data }) => {
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile }) => {
   const [insights, setInsights] = useState<GovernanceInsight | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'governance'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'governance' | 'users'>('analytics');
   const [activeCategory, setActiveCategory] = useState('All');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
+  
+  // User Management State
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   
   // Policy Simulator State
   const [hypotheticalPolicy, setHypotheticalPolicy] = useState('');
   const [simulating, setSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<any>(null);
+
+  // Poll Creation State
+  const [newQuestion, setNewQuestion] = useState('');
+  const [newCategory, setNewCategory] = useState('National');
+  const [creating, setCreating] = useState(false);
 
   const filteredPolls = useMemo(() => {
     if (activeCategory === 'All') return polls;
@@ -172,6 +188,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
     fetchInsights();
   }, [filteredPolls]);
 
+  useEffect(() => {
+    if (activeTab === 'users' && profile?.role === 'admin') {
+      setLoadingUsers(true);
+      const q = query(collection(db, 'users'), limit(50));
+      const unsubscribe = onSnapshot(q, (snap) => {
+        const userData = snap.docs.map(doc => doc.data() as UserProfile);
+        setUsers(userData);
+        setLoadingUsers(false);
+      });
+      return unsubscribe;
+    }
+  }, [activeTab, profile]);
+
   const handleSimulate = async () => {
     if (!hypotheticalPolicy || polls.length === 0) return;
     setSimulating(true);
@@ -193,6 +222,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
     setReportSuccess(true);
     setTimeout(() => setReportSuccess(false), 5000);
     // In a real app, this would trigger a PDF download
+  };
+
+  const handleCreatePoll = async () => {
+    if (!newQuestion || !user) return;
+    setCreating(true);
+    try {
+      const pollId = doc(collection(db, 'polls')).id;
+      const pollData = {
+        id: pollId,
+        question: newQuestion,
+        source: 'Official National Portal',
+        category: newCategory,
+        status: 'active',
+        totalVotes: 0,
+        yesVotes: 0,
+        noVotes: 0,
+        trending: false,
+        createdAt: Timestamp.now(),
+        createdBy: user.uid,
+      };
+      await setDoc(doc(db, 'polls', pollId), pollData);
+      setNewQuestion('');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCreating(false);
+    }
   };
 
   const stats = useMemo(() => {
@@ -271,6 +327,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
               <BrainCircuit size={16} />
               AI Governance
             </button>
+            {profile?.role === 'admin' && (
+              <button 
+                onClick={() => setActiveTab('users')}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-500",
+                  activeTab === 'users' ? "bg-amber-400 text-white" : "text-gray-400 hover:text-white"
+                )}
+              >
+                <Users size={16} />
+                User Management
+              </button>
+            )}
           </div>
           
           <button 
@@ -304,24 +372,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
           >
             {/* Impact Metric Hero */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-1 bg-gray-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-between overflow-hidden relative border border-white/5">
-                <div className="relative z-10">
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Impact Score</p>
-                  <h2 className="text-6xl font-display font-black leading-none mb-2">{stats.impactScore}</h2>
-                  <div className="flex items-center gap-2">
-                    <Zap size={14} className="text-amber-400" />
-                    <span className="text-[10px] font-bold text-bd-green uppercase tracking-widest">+12.4% from avg</span>
+              {profile?.role === 'admin' ? (
+                <div className="lg:col-span-2 bg-bd-green/5 p-8 rounded-[2.5rem] border border-bd-green/20 relative overflow-hidden flex flex-col justify-between">
+                   <div className="relative z-10">
+                     <h4 className="text-xs font-black text-bd-green uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                       <Plus size={16} /> Broadcast National Referendum
+                     </h4>
+                     <textarea 
+                        value={newQuestion}
+                        onChange={(e) => setNewQuestion(e.target.value)}
+                        placeholder="Enter strategic policy question..."
+                        className="w-full bg-white/50 backdrop-blur-sm p-4 rounded-2xl border-none ring-1 ring-bd-green/20 focus:ring-2 focus:ring-bd-green outline-none text-sm font-bold resize-none h-24 mb-4"
+                     />
+                     <div className="flex gap-4">
+                        <select 
+                          value={newCategory}
+                          onChange={(e) => setNewCategory(e.target.value)}
+                          className="flex-1 bg-white/50 p-4 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none border border-bd-green/10"
+                        >
+                          {['National', 'Economy', 'Policy', 'Environment', 'Tech'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <button 
+                          onClick={handleCreatePoll}
+                          disabled={creating || !newQuestion}
+                          className="px-8 py-4 bg-bd-green text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-bd-green/20 hover:bg-bd-green-dark"
+                        >
+                          {creating ? 'Publishing...' : 'Broadcast'}
+                        </button>
+                     </div>
+                   </div>
+                   <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-bd-green/10 rounded-full blur-3xl" />
+                </div>
+              ) : (
+                <div className="lg:col-span-1 bg-gray-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-between overflow-hidden relative border border-white/5">
+                  <div className="relative z-10">
+                    <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Impact Score</p>
+                    <h2 className="text-6xl font-display font-black leading-none mb-2">{stats.impactScore}</h2>
+                    <div className="flex items-center gap-2">
+                      <Zap size={14} className="text-amber-400" />
+                      <span className="text-[10px] font-bold text-bd-green uppercase tracking-widest">+12.4% from avg</span>
+                    </div>
                   </div>
+                  <div className="mt-8 relative z-10">
+                    <p className="text-[8px] font-medium text-white/30 uppercase leading-relaxed max-w-[150px]">
+                      Aggregate measure of verified engagement and policy relevance.
+                    </p>
+                  </div>
+                  <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-bd-green/20 blur-[50px]" />
                 </div>
-                <div className="mt-8 relative z-10">
-                  <p className="text-[8px] font-medium text-white/30 uppercase leading-relaxed max-w-[150px]">
-                    Aggregate measure of verified engagement and policy relevance.
-                  </p>
-                </div>
-                <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-bd-green/20 blur-[50px]" />
-              </div>
+              )}
 
-              <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className={cn(profile?.role === 'admin' ? "lg:col-span-2" : "lg:col-span-3", "grid grid-cols-1 md:grid-cols-3 gap-6")}>
                 <motion.div 
                   className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 group hover:border-bd-green/30 transition-all duration-700"
                 >
@@ -491,7 +592,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
               </div>
             </div>
           </motion.div>
-        ) : (
+        ) : activeTab === 'governance' ? (
           <motion.div 
             key="governance"
             initial={{ opacity: 0, y: 20 }}
@@ -704,6 +805,86 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls }) => {
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="users"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-gray-100 min-h-[600px]"
+          >
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h3 className="text-3xl font-display font-black text-gray-900 leading-none">Citizen Management</h3>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2 font-mono">Verified Node: {users.length} Active Profiles</p>
+              </div>
+              <div className="flex gap-2">
+                <button className="p-3 bg-gray-900 text-white rounded-xl hover:bg-bd-green transition-colors">
+                  <RefreshCw size={18} className={loadingUsers ? "animate-spin" : ""} />
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-hidden border border-gray-100 rounded-[2rem]">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Citizen</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Trust Index</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Verifications</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Role</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 uppercase text-[9px] font-black tracking-widest">
+                  {users.map((u) => (
+                    <tr key={u.uid} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <img src={u.photoURL} alt="" className="w-8 h-8 rounded-lg" />
+                          <div>
+                            <p className="text-gray-900">{u.displayName}</p>
+                            <p className="text-gray-400 font-medium normal-case truncate max-w-[120px]">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-bd-green" style={{ width: `${u.trustScore * 100}%` }} />
+                          </div>
+                          <span className={cn(
+                            u.trustScore > 0.8 ? "text-bd-green" : "text-amber-500"
+                          )}>
+                            {(u.trustScore * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                           {u.nidVerified && <span className="bg-bd-green/10 text-bd-green px-2 py-1 rounded-md">NID</span>}
+                           {u.phoneVerified && <span className="bg-bd-red/10 text-bd-red px-2 py-1 rounded-md">PHONE</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={cn(
+                          "px-2 py-1 rounded-md",
+                          u.role === 'admin' ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"
+                        )}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button className="text-gray-400 hover:text-gray-900 transition-colors">
+                          <Settings2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </motion.div>
         )}
