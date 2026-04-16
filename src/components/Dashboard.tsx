@@ -38,12 +38,13 @@ import {
   Lock,
   Plus,
   Newspaper,
-  Settings2
+  Settings2,
+  ExternalLink
 } from 'lucide-react';
-import { Poll, UserProfile } from '../types';
+import { Poll, UserProfile, NewsArticle } from '../types';
 import { generateGovernanceInsights, simulatePolicyReaction, GovernanceInsight } from '../services/aiAnalyticsService';
 import { cn } from '../lib/utils';
-import { collection, query, limit, onSnapshot, getDocs, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, limit, onSnapshot, getDocs, doc, setDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface DashboardProps {
@@ -172,6 +173,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
   const [hypotheticalPolicy, setHypotheticalPolicy] = useState('');
   const [simulating, setSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<any>(null);
+
+  // Intelligence Feed State
+  const [recentNews, setRecentNews] = useState<NewsArticle[]>([]);
+  const [isNewsLoading, setIsNewsLoading] = useState(true);
+
+  // Fetch AI news articles
+  useEffect(() => {
+    const newsQuery = query(
+      collection(db, 'pending_questions'),
+      orderBy('createdAt', 'desc'),
+      limit(3)
+    );
+
+    const unsubscribe = onSnapshot(newsQuery, (snapshot) => {
+      const newsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as NewsArticle[];
+      setRecentNews(newsData);
+      setIsNewsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Poll Creation State
   const [newQuestion, setNewQuestion] = useState('');
@@ -546,6 +571,100 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                 </div>
               </motion.div>
             </div>
+
+            {/* Intelligence Feed Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-12"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div>
+                  <h3 className="text-4xl font-display font-black text-gray-900 tracking-tighter flex items-center gap-4">
+                    <div className="p-3 bg-bd-red rounded-2xl text-white">
+                      <Newspaper size={32} />
+                    </div>
+                    National Intelligence Feed
+                  </h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mt-2">Latest AI-vetted regional alerts and reports</p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    setIsNewsLoading(true);
+                    try {
+                      await fetch('/api/ai/scrape', { method: 'POST' });
+                    } catch (error) {
+                      console.error('Failed to refresh news:', error);
+                    } finally {
+                      setIsNewsLoading(false);
+                    }
+                  }}
+                  className="group flex self-start md:self-center items-center gap-3 px-6 py-3 bg-gray-50 hover:bg-white border-2 border-transparent hover:border-gray-200 rounded-2xl transition-all duration-500 shadow-sm"
+                >
+                  <RefreshCw size={18} className={cn("text-gray-400 group-hover:text-bd-green transition-transform duration-700", isNewsLoading && "animate-spin")} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-gray-900">Force Scrape</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                {isNewsLoading && recentNews.length === 0 ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-[280px] bg-gray-50 border-2 border-dashed border-gray-100 rounded-[2.5rem] animate-pulse" />
+                  ))
+                ) : recentNews.length === 0 ? (
+                  <div className="md:col-span-3 p-12 text-center bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                    <Newspaper size={48} className="mx-auto text-gray-300 mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">No Intelligence reports processed yet.</p>
+                  </div>
+                ) : (
+                  recentNews.map((article, index) => (
+                    <motion.div
+                      key={article.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="group relative h-full flex flex-col p-8 bg-white border border-gray-100 hover:border-bd-green/30 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-bd-green/5 transition-all duration-500 overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-10 h-10 bg-bd-green/10 rounded-full flex items-center justify-center text-bd-green rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                          <Zap size={20} fill="currentColor" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="px-3 py-1 bg-gray-100 rounded-lg">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">{article.category}</span>
+                        </div>
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">•</span>
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{article.publishedDate}</span>
+                      </div>
+
+                      <h4 className="text-xl font-display font-black text-gray-900 mb-4 line-clamp-3 leading-[1.3] group-hover:text-bd-green transition-colors">
+                        {article.headline}
+                      </h4>
+
+                      <div className="mt-auto pt-6 border-t border-gray-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Intelligence Source</p>
+                          <p className="text-[11px] font-bold text-gray-600 flex items-center gap-1.5">
+                            <Globe size={12} className="text-bd-green" />
+                            {article.source}
+                          </p>
+                        </div>
+                        <a
+                          href={article.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 bg-gray-50 hover:bg-bd-green text-gray-400 hover:text-white rounded-xl transition-all duration-300"
+                        >
+                          <ExternalLink size={18} />
+                        </a>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </motion.div>
 
             {/* Region Heatmap & Trust Analysis */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">

@@ -38,3 +38,13 @@ export interface Vote {
   timestamp: Timestamp;
   region: string;
 }
+
+export interface NewsArticle {
+  id: string;
+  headline: string;
+  source: string;
+  sourceUrl: string;
+  publishedDate: string;
+  category: string;
+  createdAt: Timestamp;
+}
