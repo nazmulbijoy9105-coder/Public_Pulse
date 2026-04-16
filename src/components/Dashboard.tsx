@@ -55,6 +55,12 @@ interface DashboardProps {
 
 const COLORS = ['#006A4E', '#F42A41', '#FFBB28', '#FF8042', '#8884d8'];
 
+const POLICY_ARCHETYPES = [
+  { label: "Universal Pension", text: "Implementing a mandatory universal pension scheme for all citizens over 60." },
+  { label: "Water Toll", text: "Introducing a usage-based toll for industrial water extraction from major rivers." },
+  { label: "Digital ID voting", text: "Transitioning all future national referendums to 100% biometric Digital ID voting." },
+];
+
 const BangladeshMap: React.FC<{ data: any }> = ({ data }) => {
   // Enhanced SVG paths for Bangladesh divisions (approximate polygons for better visual representation)
   const divisions = [
@@ -488,8 +494,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <TrendingUp size={20} className="text-bd-green" />
                   Sentiment Trends (%)
                 </h4>
-                <div className="h-[300px] min-h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <div className="h-[300px] min-h-[300px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                     <LineChart data={stats.trendData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="name" hide />
@@ -515,8 +521,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <PieIcon size={20} className="text-bd-red" />
                   Policy Heatmap (By Category)
                 </h4>
-                <div className="h-[300px] min-h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <div className="h-[300px] min-h-[300px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                     <PieChart>
                       <Pie
                         data={stats.pieData}
@@ -753,6 +759,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
               </div>
 
               <div className="space-y-6">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {POLICY_ARCHETYPES.map((arch, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setHypotheticalPolicy(arch.text)}
+                      className="px-4 py-2 bg-gray-100/50 hover:bg-bd-green/10 hover:text-bd-green rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300 border border-gray-100"
+                    >
+                      {arch.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="relative">
                   <textarea 
                     value={hypotheticalPolicy}
@@ -791,8 +808,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Predicted Public Support</p>
                           <h5 className="text-4xl font-display font-black text-bd-green">{simulationResult.predictedSupport}%</h5>
                         </div>
-                        <div className="w-24 h-24 min-w-[96px] min-h-[96px]">
-                          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <div className="w-24 h-24 min-w-[96px] min-h-[96px] relative">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                             <PieChart>
                               <Pie
                                 data={[
@@ -816,33 +833,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                         <div className="space-y-4">
                           <h6 className="text-[10px] font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
                             <Info size={14} className="text-bd-green" />
-                            Sentiment Analysis
+                            Analytical Reasoning
                           </h6>
-                          <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                            {simulationResult.sentimentAnalysis}
+                          <p className="text-sm text-gray-700 leading-relaxed font-medium">
+                            {simulationResult.reasoning || simulationResult.sentimentAnalysis}
                           </p>
+                          <div className="pt-4 space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Risk Intensity</span>
+                              <span className="text-[10px] font-black text-bd-red">{(simulationResult.riskIndex * 100).toFixed(0)}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(simulationResult.riskIndex || 0) * 100}%` }}
+                                className="h-full bg-bd-red shadow-[0_0_10px_rgba(244,42,65,0.3)]"
+                              />
+                            </div>
+                          </div>
                         </div>
                         <div className="space-y-4">
                           <h6 className="text-[10px] font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
                             <ShieldAlert size={14} className="text-bd-red" />
-                            Key Concerns
+                            Predicted Friction Points
                           </h6>
                           <div className="space-y-2">
                             {simulationResult.keyConcerns.map((concern: string, i: number) => (
-                              <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
+                              <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-bd-red/20 transition-colors">
                                 <div className="w-1.5 h-1.5 bg-bd-red rounded-full" />
                                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{concern}</p>
                               </div>
                             ))}
                           </div>
+                          <div className="pt-4 flex items-center justify-between p-4 bg-gray-100/50 rounded-2xl border border-gray-100">
+                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Societal Unity Impact</span>
+                             <div className={cn(
+                               "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
+                               simulationResult.unityImpact === 'positive' ? "bg-bd-green/10 text-bd-green" :
+                               simulationResult.unityImpact === 'negative' ? "bg-bd-red/10 text-bd-red" :
+                               "bg-gray-200 text-gray-500"
+                             )}>
+                               {simulationResult.unityImpact || 'Neutral'}
+                             </div>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="pt-6 border-t border-gray-200">
-                        <h6 className="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2">Demographic Impact</h6>
-                        <p className="text-xs text-gray-500 font-medium italic">
-                          {simulationResult.demographicImpact}
-                        </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-gray-200">
+                        <div>
+                          <h6 className="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2">Sentiment Analysis</h6>
+                          <p className="text-xs text-gray-500 font-medium leading-relaxed">
+                            {simulationResult.sentimentAnalysis}
+                          </p>
+                        </div>
+                        <div>
+                          <h6 className="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-2">Demographic Targeting</h6>
+                          <p className="text-xs text-gray-600 font-bold uppercase tracking-wider">
+                            {simulationResult.demographicImpact}
+                          </p>
+                        </div>
                       </div>
                     </motion.div>
                   )}

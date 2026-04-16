@@ -261,16 +261,20 @@ async function startServer() {
 
       const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
         contents: [{ role: "user", parts: [{ text: `Predict the public reaction in Bangladesh to this hypothetical policy based on historical polling data.
+        Analyze trends in existing data to identify potential friction points and support clusters.
         
         Hypothetical Policy: "${policy}"
-        Historical Data: ${JSON.stringify(pollContext)}
+        Historical Data Context: ${JSON.stringify(pollContext)}
         
         Return JSON format:
         {
-          "predictedSupport": 65,
-          "sentimentAnalysis": "...",
-          "keyConcerns": ["Concern 1", "Concern 2"],
-          "demographicImpact": "..."
+          "predictedSupport": number,
+          "sentimentAnalysis": "string (detailed explanation)",
+          "keyConcerns": ["string", "string"],
+          "demographicImpact": "string",
+          "riskIndex": number (0 to 1),
+          "unityImpact": "positive|negative|neutral",
+          "reasoning": "string (explaining the direct link to historical data)"
         }` }] }],
         generationConfig: {
           responseMimeType: "application/json"
