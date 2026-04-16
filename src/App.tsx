@@ -3,7 +3,10 @@ import {
   onAuthStateChanged, 
   signInWithPopup, 
   signOut, 
-  User as FirebaseUser 
+  User as FirebaseUser,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import { 
   collection, 
@@ -99,6 +102,8 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   login: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  signup: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   verifyNID: () => Promise<void>;
   verifyPhone: (phone: string) => Promise<void>;
@@ -162,6 +167,31 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error('Login failed:', error);
+      if ((error as any).code === 'auth/popup-blocked') {
+        alert('Popup blocked! Please allow popups or try email login if Google is blocked in this browser.');
+      } else {
+        alert('Authentication error. If you see "disallowed_useragent", please use the Email Login option below or open the app in a new tab.');
+      }
+    }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error) {
+      console.error('Email login failed:', error);
+      throw error;
+    }
+  };
+
+  const signup = async (email: string, pass: string, name: string) => {
+    try {
+      const { user: newUser } = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(newUser, { displayName: name });
+      // Profile initialization will happen in useEffect onAuthStateChanged
+    } catch (error) {
+      console.error('Signup failed:', error);
+      throw error;
     }
   };
 
@@ -210,7 +240,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const isAdmin = profile?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, login, logout, verifyNID, verifyPhone }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, login, loginWithEmail, signup, logout, verifyNID, verifyPhone }}>
       {children}
     </AuthContext.Provider>
   );
@@ -716,6 +746,150 @@ const Header: React.FC<HeaderProps> = ({ view, setView, setShowTrustModal }) => 
   );
 };
 
+const AuthSection: React.FC = () => {
+  const { login, loginWithEmail, signup } = useAuth();
+  const [mode, setMode] = useState<'options' | 'login' | 'signup'>('options');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      if (mode === 'login') {
+        await loginWithEmail(email, password);
+      } else {
+        await signup(email, password, name);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (mode === 'options') {
+    return (
+      <div className="space-y-4">
+        <button 
+          onClick={() => login()}
+          className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black text-xs shadow-xl hover:bg-bd-green transition-all active:scale-[0.98] duration-500 uppercase tracking-widest flex items-center justify-center gap-3"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 bg-white p-1 rounded-sm" alt="G" />
+          Continue with Google
+        </button>
+        <div className="flex items-center gap-4 py-2">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">or</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <button 
+            onClick={() => setMode('login')}
+            className="py-4 bg-white border border-gray-200 text-gray-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-bd-green hover:bg-bd-green/5 transition-all"
+          >
+            Sign In
+          </button>
+          <button 
+            onClick={() => setMode('signup')}
+            className="py-4 bg-white border border-gray-200 text-gray-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-bd-green hover:bg-bd-green/5 transition-all"
+          >
+            Sign Up
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 text-left">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">
+          {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+        </h3>
+        <button 
+          type="button"
+          onClick={() => setMode('options')}
+          className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-bd-red"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-500 text-[10px] font-black uppercase tracking-widest">
+          {error}
+        </div>
+      )}
+
+      {mode === 'signup' && (
+        <div className="space-y-1.5">
+          <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Full Name</label>
+          <input 
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full p-4 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-bd-green font-bold text-sm"
+            placeholder="John Doe"
+          />
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Email Address</label>
+        <input 
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-4 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-bd-green font-bold text-sm"
+          placeholder="name@example.com"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Password</label>
+        <input 
+          type="password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-4 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-bd-green font-bold text-sm"
+          placeholder="••••••••"
+        />
+      </div>
+
+      <button 
+        type="submit"
+        disabled={loading}
+        className="w-full py-5 bg-bd-green text-white rounded-2xl font-black text-xs shadow-xl shadow-bd-green/20 hover:bg-bd-green-dark transition-all uppercase tracking-widest mt-4 flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+        ) : (
+          mode === 'login' ? 'Sign In Now' : 'Create Profile'
+        )}
+      </button>
+
+      <p className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-4">
+        {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+        <button 
+          type="button"
+          onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+          className="text-bd-green hover:underline ml-1"
+        >
+          {mode === 'login' ? 'Sign Up' : 'Sign In'}
+        </button>
+      </p>
+    </form>
+  );
+};
+
 const AppContent: React.FC = () => {
   const { loading, user, isAdmin, profile, login, verifyNID, verifyPhone } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
@@ -835,14 +1009,8 @@ const AppContent: React.FC = () => {
               <p className="text-gray-500 mb-10 leading-relaxed text-lg max-w-sm mx-auto font-medium">
                 The first AI-powered referendum engine for <span className="text-bd-green font-black">Bangladesh</span>.
               </p>
-              <button 
-                onClick={() => login()}
-                className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black text-xs shadow-xl hover:bg-bd-green transition-all active:scale-[0.98] duration-500 uppercase tracking-widest flex items-center justify-center gap-3"
-              >
-                <Globe size={18} />
-                Connect Identity & Enter
-              </button>
-              <p className="mt-6 text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+              <AuthSection />
+              <p className="mt-8 text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
                 <Lock size={12} />
                 End-to-End Encrypted Participation
               </p>
