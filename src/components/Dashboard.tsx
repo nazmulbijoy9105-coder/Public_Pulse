@@ -519,8 +519,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <TrendingUp size={20} className="text-bd-green" />
                   Sentiment Trends (%)
                 </h4>
-                <div className="h-[300px] min-h-[300px] w-full relative flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                <div className="h-[300px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={300}>
                     <LineChart data={stats.trendData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="name" hide />
@@ -546,8 +546,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <PieIcon size={20} className="text-bd-red" />
                   Policy Heatmap (By Category)
                 </h4>
-                <div className="h-[300px] min-h-[300px] w-full relative flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
+                <div className="h-[300px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={300}>
                     <PieChart>
                       <Pie
                         data={stats.pieData}
@@ -771,10 +771,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                         <div className="flex items-center gap-1.5">
                           <Users size={12} className="text-gray-400" />
-                          <span className="text-[10px] font-black text-gray-900">{poll.totalVotes.toLocaleString()}</span>
+                          <span className="text-[10px] font-black text-gray-900">
+                            {!user && poll.totalVotes > 100 ? `${(poll.totalVotes / 1000).toFixed(1)}k+` : poll.totalVotes.toLocaleString()}
+                          </span>
                         </div>
                         <div className="p-1.5 bg-gray-100 rounded-lg group-hover/item:bg-bd-green/10 transition-colors">
-                          <ArrowRight size={10} className="text-gray-400 group-hover/item:text-bd-green" />
+                          {!user ? <Lock size={10} className="text-gray-400" /> : <ArrowRight size={10} className="text-gray-400 group-hover/item:text-bd-green" />}
                         </div>
                       </div>
                     </motion.div>
@@ -927,24 +929,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Predicted Public Support</p>
                           <h5 className="text-4xl font-display font-black text-bd-green">{simulationResult.predictedSupport}%</h5>
                         </div>
-                        <div className="w-24 h-24 min-w-[96px] min-h-[96px] relative">
-                          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
-                            <PieChart>
-                              <Pie
-                                data={[
-                                  { value: simulationResult.predictedSupport },
-                                  { value: 100 - simulationResult.predictedSupport }
-                                ]}
-                                innerRadius={30}
-                                outerRadius={45}
-                                stroke="none"
-                                dataKey="value"
-                              >
-                                <Cell fill="#006A4E" />
-                                <Cell fill="#f3f4f6" />
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
+                        <div className="w-24 h-24 flex items-center justify-center">
+                          <PieChart width={96} height={96}>
+                            <Pie
+                              data={[
+                                { value: simulationResult.predictedSupport },
+                                { value: 100 - simulationResult.predictedSupport }
+                              ]}
+                              innerRadius={30}
+                              outerRadius={45}
+                              stroke="none"
+                              dataKey="value"
+                            >
+                              <Cell fill="#006A4E" />
+                              <Cell fill="#f3f4f6" />
+                            </Pie>
+                          </PieChart>
                         </div>
                       </div>
 

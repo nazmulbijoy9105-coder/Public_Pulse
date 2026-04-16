@@ -848,27 +848,8 @@ const AppContent: React.FC = () => {
               </p>
             </div>
 
-            <div className="opacity-50 pointer-events-none filter blur-[2px] scale-[0.98] origin-top transition-all duration-1000">
+            <div className="opacity-70 origin-top transition-all duration-1000">
                <Dashboard polls={polls} user={null} profile={null} onViewActivePolls={() => login()} />
-            </div>
-            
-            <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[50] w-[90%] max-w-md">
-              <motion.div 
-                initial={{ y: 100 }}
-                animate={{ y: 0 }}
-                className="bg-gray-950/90 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 flex items-center justify-between shadow-2xl"
-              >
-                <div>
-                  <h4 className="text-white text-xs font-black uppercase tracking-widest">Guest Mode</h4>
-                  <p className="text-white/40 text-[9px] uppercase tracking-widest mt-1">Limited Visibility Active</p>
-                </div>
-                <button 
-                  onClick={() => login()}
-                  className="px-6 py-3 bg-bd-green text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-bd-green/20"
-                >
-                  Unlock All Data
-                </button>
-              </motion.div>
             </div>
           </div>
         ) : (
