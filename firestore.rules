@@ -135,7 +135,8 @@ service cloud.firestore {
     }
 
     match /pending_questions/{id} {
-      allow read, write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     match /test/connection {

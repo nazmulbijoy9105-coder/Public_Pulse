@@ -519,7 +519,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <TrendingUp size={20} className="text-bd-green" />
                   Sentiment Trends (%)
                 </h4>
-                <div className="h-[300px] min-h-[300px] w-full relative">
+                <div className="h-[300px] min-h-[300px] w-full relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                     <LineChart data={stats.trendData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -546,7 +546,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   <PieIcon size={20} className="text-bd-red" />
                   Policy Heatmap (By Category)
                 </h4>
-                <div className="h-[300px] min-h-[300px] w-full relative">
+                <div className="h-[300px] min-h-[300px] w-full relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={50}>
                     <PieChart>
                       <Pie

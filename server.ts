@@ -197,8 +197,13 @@ async function startServer() {
         return res.status(400).json({ error: "polls are required" });
       }
 
+      const pollsToAnalyze = Array.isArray(polls) ? polls.slice(0, 15) : [];
+      if (pollsToAnalyze.length === 0) {
+        return res.status(400).json({ error: "No polls provided for analysis" });
+      }
+
       const ai = getAiClient();
-      const pollContext = polls.map((p: any) => ({
+      const pollContext = pollsToAnalyze.map((p: any) => ({
         question: p.question,
         category: p.category,
         yes: p.yesVotes,
@@ -251,8 +256,13 @@ async function startServer() {
         return res.status(400).json({ error: "policy and historicalPolls are required" });
       }
 
+      const pollsToAnalyze = Array.isArray(historicalPolls) ? historicalPolls.slice(0, 15) : [];
+      if (!policy || pollsToAnalyze.length === 0) {
+        return res.status(400).json({ error: "policy and historicalPolls are required" });
+      }
+
       const ai = getAiClient();
-      const pollContext = historicalPolls.map((p: any) => ({
+      const pollContext = pollsToAnalyze.map((p: any) => ({
         question: p.question,
         category: p.category,
         yes: p.yesVotes,
