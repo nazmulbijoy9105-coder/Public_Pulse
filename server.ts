@@ -44,6 +44,31 @@ async function startServer() {
     { name: "Kaler Kantho", url: "https://www.kalerkantho.com/online/national" }
   ];
 
+  const getAiModel = (modelName: string = "gemini-2.0-flash") => {
+    const ai = getAiClient();
+    return ai.getGenerativeModel({ 
+      model: modelName,
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE",
+        },
+      ],
+    });
+  };
+
   const performScrapeAndSave = async () => {
     console.log(`[${new Date().toISOString()}] Starting automated news scrape...`);
     const ai = getAiClient();
@@ -96,7 +121,8 @@ async function startServer() {
           second: '2-digit'
         });
 
-        const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+        const model = getAiModel();
+        const response = await model.generateContent({
           contents: [{ role: "user", parts: [{ text: `Analyze these news items from ${source.name} (${source.url}) as of ${currentDate}.
           Select the top 3 most priority ones for public polling in Bangladesh.
           
@@ -165,8 +191,8 @@ async function startServer() {
         return res.status(400).json({ error: "rawInput is required" });
       }
 
-      const ai = getAiClient();
-      const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+      const model = getAiModel();
+      const response = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: `Convert this news headline or topic into a neutral, unbiased YES/NO question for a public polling platform. 
         Also provide a one-word category (e.g., National, Economy, Environment, Tech).
         
@@ -202,7 +228,7 @@ async function startServer() {
         return res.status(400).json({ error: "No polls provided for analysis" });
       }
 
-      const ai = getAiClient();
+      const model = getAiModel();
       const pollContext = pollsToAnalyze.map((p: any) => ({
         question: p.question,
         category: p.category,
@@ -211,7 +237,7 @@ async function startServer() {
         total: p.totalVotes
       }));
 
-      const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+      const response = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: `Analyze these public opinion polls from Bangladesh and provide predictive governance insights.
         
         Poll Data: ${JSON.stringify(pollContext)}
@@ -261,7 +287,7 @@ async function startServer() {
         return res.status(400).json({ error: "policy and historicalPolls are required" });
       }
 
-      const ai = getAiClient();
+      const model = getAiModel();
       const pollContext = pollsToAnalyze.map((p: any) => ({
         question: p.question,
         category: p.category,
@@ -269,7 +295,7 @@ async function startServer() {
         no: p.noVotes
       }));
 
-      const response = await ai.getGenerativeModel({ model: "gemini-2.0-flash" }).generateContent({
+      const response = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: `Predict the public reaction in Bangladesh to this hypothetical policy based on historical polling data.
         Analyze trends in existing data to identify potential friction points and support clusters.
         

@@ -84,7 +84,9 @@ export const AdminModeration: React.FC = () => {
     if (!item.id) return;
     try {
       // 1. Create the actual poll
-      await addDoc(collection(db, 'polls'), {
+      const pollId = doc(collection(db, 'polls')).id;
+      await setDoc(doc(db, 'polls', pollId), {
+        id: pollId,
         question: item.question,
         source: item.source,
         category: item.category,
