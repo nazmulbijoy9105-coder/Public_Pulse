@@ -38,6 +38,7 @@ import {
   Settings2,
   Newspaper,
   Clock,
+  Archive,
   ExternalLink,
   Activity,
   Globe,
@@ -215,10 +216,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   );
 };
 
-const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, onVerifyPhone }) => {
-  const { profile, user } = useAuth();
+const PollCard: React.FC<{ 
+  poll: Poll; 
+  onVerifyPhone: () => void;
+  onArchive?: (id: string) => Promise<void>;
+}> = ({ poll, onVerifyPhone, onArchive }) => {
+  const { profile, user, isAdmin } = useAuth();
   const [userVote, setUserVote] = useState<Vote | null>(null);
   const [voting, setVoting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -301,6 +307,16 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
   const yesPercent = poll.totalVotes > 0 ? Math.round((poll.yesVotes / poll.totalVotes) * 100) : 0;
   const noPercent = poll.totalVotes > 0 ? Math.round((poll.noVotes / poll.totalVotes) * 100) : 0;
 
+  const handleArchive = async () => {
+    if (!onArchive) return;
+    setArchiving(true);
+    try {
+      await onArchive(poll.id);
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   return (
     <motion.div 
       layout
@@ -313,6 +329,24 @@ const PollCard: React.FC<{ poll: Poll; onVerifyPhone: () => void }> = ({ poll, o
           <TrendingUp size={14} />
           Trending
         </div>
+      )}
+
+      {isAdmin && poll.status === 'active' && onArchive && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleArchive();
+          }}
+          disabled={archiving}
+          className="absolute top-6 left-6 w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-500 rounded-full hover:bg-bd-red hover:text-white transition-all duration-300 shadow-sm"
+          title="Archive Poll"
+        >
+          {archiving ? (
+            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+          ) : (
+            <Archive size={14} />
+          )}
+        </button>
       )}
 
       <div className="flex items-center gap-2 text-bd-green font-bold text-[10px] uppercase tracking-[0.2em] mb-4">
@@ -757,6 +791,18 @@ const AppContent: React.FC = () => {
     setShowPhoneModal(false);
   };
 
+  const handleArchivePoll = async (pollId: string) => {
+    try {
+      const pollRef = doc(db, 'polls', pollId);
+      await updateDoc(pollRef, {
+        status: 'archived',
+        archivedAt: Timestamp.now()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `polls/${pollId}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -901,7 +947,12 @@ const AppContent: React.FC = () => {
                 <AnimatePresence mode="popLayout">
                   {polls.length > 0 ? (
                     polls.map((poll) => (
-                      <PollCard key={poll.id} poll={poll} onVerifyPhone={() => setShowPhoneModal(true)} />
+                      <PollCard 
+                        key={poll.id} 
+                        poll={poll} 
+                        onVerifyPhone={() => setShowPhoneModal(true)}
+                        onArchive={isAdmin ? handleArchivePoll : undefined}
+                      />
                     ))
                   ) : (
                     <div className="text-center py-20 premium-card border-dashed border-2 border-gray-200 bg-transparent">
