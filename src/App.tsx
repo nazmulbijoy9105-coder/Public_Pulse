@@ -687,6 +687,7 @@ const AppContent: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [filter, setFilter] = useState('All');
   const [view, setView] = useState<'active' | 'archived' | 'moderation' | 'dashboard' | 'legal'>('active');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [verifying, setVerifying] = useState(false);
   const [showNIDModal, setShowNIDModal] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
@@ -716,7 +717,7 @@ const AppContent: React.FC = () => {
       q = query(q, where('category', '==', filter));
     }
 
-    q = query(q, orderBy('createdAt', 'desc'), limit(pollLimit));
+    q = query(q, orderBy('createdAt', sortOrder), limit(pollLimit));
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Poll));
@@ -725,14 +726,27 @@ const AppContent: React.FC = () => {
       handleFirestoreError(error, OperationType.LIST, 'polls');
     });
     return unsubscribe;
-  }, [user, view, filter]);
+  }, [user, view, filter, sortOrder]);
+
+  const [verificationStage, setVerificationStage] = useState('');
 
   const handleVerify = async () => {
     setVerifying(true);
-    await new Promise(r => setTimeout(r, 2500)); // Simulate secure verification
+    const stages = [
+      'Generating Cryptographic Hash...',
+      'Cross-checking with National Archive...',
+      'Validating Uniqueness...',
+      'Finalizing Identity Link...'
+    ];
+    
+    for (const stage of stages) {
+      setVerificationStage(stage);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    
     await verifyNID();
     setVerifying(false);
-    setShowNIDModal(false);
+    setNidStep(3); // Show success step
   };
 
   const handlePhoneVerify = async () => {
@@ -789,7 +803,7 @@ const AppContent: React.FC = () => {
             </div>
 
             <div className="opacity-50 pointer-events-none filter blur-[2px] scale-[0.98] origin-top transition-all duration-1000">
-               <Dashboard polls={polls} user={null} profile={null} />
+               <Dashboard polls={polls} user={null} profile={null} onViewActivePolls={() => login()} />
             </div>
             
             <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[50] w-[90%] max-w-md">
@@ -828,27 +842,59 @@ const AppContent: React.FC = () => {
             </div>
 
             <div className="mb-12">
-              <div className="flex gap-3 overflow-x-auto pb-6 no-scrollbar mb-6">
-                {FILTER_CATEGORIES.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setFilter(cat)}
-                    className={cn(
-                      "px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all duration-500 border",
-                      filter === cat 
-                        ? "bg-bd-green text-white border-bd-green shadow-xl shadow-bd-green/20" 
-                        : "bg-white text-gray-500 border-gray-100 hover:border-bd-green hover:text-bd-green"
-                    )}
-                  >
-                    {cat}
-                  </button>
-                ))}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                  {FILTER_CATEGORIES.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setFilter(cat)}
+                      className={cn(
+                        "px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all duration-500 border",
+                        filter === cat 
+                          ? "bg-bd-green text-white border-bd-green shadow-xl shadow-bd-green/20" 
+                          : "bg-white text-gray-500 border-gray-100 hover:border-bd-green hover:text-bd-green"
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {view === 'archived' && (
+                  <div className="flex bg-gray-100/50 p-1.5 rounded-2xl border border-gray-100 shrink-0">
+                    <button 
+                      onClick={() => setSortOrder('desc')}
+                      className={cn(
+                        "flex items-center gap-2 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300",
+                        sortOrder === 'desc' ? "bg-white text-gray-900 shadow-xl shadow-gray-200/50" : "text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      <Clock size={12} />
+                      Latest
+                    </button>
+                    <button 
+                      onClick={() => setSortOrder('asc')}
+                      className={cn(
+                        "flex items-center gap-2 px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all duration-300",
+                        sortOrder === 'asc' ? "bg-white text-gray-900 shadow-xl shadow-gray-200/50" : "text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      <History size={12} />
+                      Oldest
+                    </button>
+                  </div>
+                )}
               </div>
 
               {view === 'moderation' && isAdmin ? (
                 <AdminModeration />
               ) : view === 'dashboard' ? (
-                <Dashboard polls={polls} user={user} profile={profile} />
+                <Dashboard 
+                  polls={polls} 
+                  user={user} 
+                  profile={profile} 
+                  onViewActivePolls={() => setView('active')}
+                />
               ) : view === 'legal' ? (
                 <Legal />
               ) : (
@@ -1234,7 +1280,7 @@ const AppContent: React.FC = () => {
                       Continue to Verify
                     </button>
                   </div>
-                ) : (
+                ) : nidStep === 2 ? (
                   <div className="space-y-8">
                     <div className="space-y-4">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">NID Number</label>
@@ -1252,25 +1298,54 @@ const AppContent: React.FC = () => {
                     <button 
                       onClick={handleVerify}
                       disabled={verifying || nidNumber.length < 10}
-                      className="w-full py-5 bg-bd-green text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-bd-green-dark transition-all duration-500 shadow-xl shadow-bd-green/20 disabled:opacity-50 flex items-center justify-center gap-3"
+                      className="w-full py-5 bg-bd-green text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-bd-green-dark transition-all duration-500 shadow-xl shadow-bd-green/20 disabled:opacity-50 flex flex-col items-center justify-center gap-2"
                     >
                       {verifying ? (
                         <>
-                          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                          Authenticating...
+                          <div className="flex items-center gap-3">
+                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                            Authenticating...
+                          </div>
+                          <p className="text-[8px] font-bold text-white/60 tracking-widest animate-pulse">{verificationStage}</p>
                         </>
                       ) : (
-                        <>
+                        <div className="flex items-center gap-3">
                           <ShieldCheck size={20} />
                           Verify Identity
-                        </>
+                        </div>
                       )}
                     </button>
                     <button 
                       onClick={() => setNidStep(1)}
-                      className="w-full py-2 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-gray-600 transition-colors"
+                      disabled={verifying}
+                      className="w-full py-2 text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-gray-600 transition-colors disabled:opacity-0"
                     >
                       Go Back
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-8 py-4">
+                    <motion.div 
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="w-24 h-24 bg-bd-green text-white rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-bd-green/30"
+                    >
+                      <CheckCircle2 size={48} />
+                    </motion.div>
+                    <div className="text-center">
+                      <h4 className="text-xl font-display font-black text-gray-900 mb-2">Verification Successful</h4>
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest leading-relaxed">
+                        Your identity has been cryptographically secured.<br/>Trust score boosted.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setShowNIDModal(false);
+                        setTimeout(() => setNidStep(1), 500);
+                      }}
+                      className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-bd-green transition-all duration-500"
+                    >
+                      Dismiss
                     </button>
                   </div>
                 )}

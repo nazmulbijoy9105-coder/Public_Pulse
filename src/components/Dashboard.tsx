@@ -50,6 +50,7 @@ interface DashboardProps {
   polls: Poll[];
   user: any;
   profile: UserProfile | null;
+  onViewActivePolls: () => void;
 }
 
 const COLORS = ['#006A4E', '#F42A41', '#FFBB28', '#FF8042', '#8884d8'];
@@ -142,10 +143,17 @@ const BangladeshMap: React.FC<{ data: any }> = ({ data }) => {
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onViewActivePolls }) => {
   const [insights, setInsights] = useState<GovernanceInsight | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [activeTab, setActiveTab] = useState<'analytics' | 'governance' | 'users'>('analytics');
+  
+  const recentActivePolls = useMemo(() => {
+    return [...polls]
+      .filter(p => p.status === 'active')
+      .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+      .slice(0, 5);
+  }, [polls]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
@@ -591,6 +599,69 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile }) =>
                 </div>
               </div>
             </div>
+
+            {/* Global Pulse Feed Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-gray-100 group"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-bd-red/10 text-bd-red rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-bd-red/10 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+                    <Activity size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-display font-black text-gray-900 leading-tight">National Pulse Feed</h3>
+                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Real-time Citizen Engagement</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={onViewActivePolls}
+                  className="flex items-center gap-3 px-8 py-4 bg-gray-900 text-white rounded-[1.25rem] text-xs font-black uppercase tracking-widest hover:bg-bd-green transition-all duration-500 shadow-[0_20px_40px_rgba(0,0,0,0.1)] group/btn"
+                >
+                  View All Active Polls
+                  <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                {recentActivePolls.length > 0 ? (
+                  recentActivePolls.map((poll) => (
+                    <motion.div 
+                      key={poll.id}
+                      whileHover={{ y: -8 }}
+                      className="bg-gray-50 p-6 rounded-[2.25rem] border border-gray-100 flex flex-col justify-between group/item hover:bg-white hover:border-bd-green/30 hover:shadow-2xl transition-all duration-500"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="w-2 h-2 bg-bd-green rounded-full animate-pulse" />
+                          <span className="text-[9px] font-black text-bd-green uppercase tracking-widest">{poll.category}</span>
+                        </div>
+                        <h4 className="text-xs font-bold text-gray-900 leading-relaxed mb-4 line-clamp-3 group-hover/item:text-bd-green transition-colors">
+                          {poll.question}
+                        </h4>
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div className="flex items-center gap-1.5">
+                          <Users size={12} className="text-gray-400" />
+                          <span className="text-[10px] font-black text-gray-900">{poll.totalVotes.toLocaleString()}</span>
+                        </div>
+                        <div className="p-1.5 bg-gray-100 rounded-lg group-hover/item:bg-bd-green/10 transition-colors">
+                          <ArrowRight size={10} className="text-gray-400 group-hover/item:text-bd-green" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-20 text-center flex flex-col items-center justify-center bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200">
+                    <AlertTriangle size={32} className="text-gray-300 mb-4" />
+                    <p className="text-gray-400 font-black text-[10px] uppercase tracking-widest">No active pulses detected in the current cycle</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </motion.div>
         ) : activeTab === 'governance' ? (
           <motion.div 
