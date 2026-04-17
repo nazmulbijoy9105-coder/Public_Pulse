@@ -9,7 +9,8 @@ import {
   Clock, 
   ExternalLink, 
   Plus,
-  AlertCircle
+  AlertCircle,
+  BrainCircuit
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -32,6 +33,7 @@ export const AdminModeration: React.FC = () => {
   const [pending, setPending] = useState<PendingQuestion[]>([]);
   const [scraping, setScraping] = useState(false);
   const [refining, setRefining] = useState<string | null>(null);
+  const [bulkRefining, setBulkRefining] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,6 +80,20 @@ export const AdminModeration: React.FC = () => {
       console.error('Refinement failed:', error);
     } finally {
       setRefining(null);
+    }
+  };
+
+  const refineAll = async () => {
+    const unrefined = pending.filter(q => q.status === 'pending' && q.question.endsWith('?'));
+    if (unrefined.length === 0) return;
+    
+    setBulkRefining(true);
+    try {
+      for (const item of unrefined) {
+        await handleRefine(item);
+      }
+    } finally {
+      setBulkRefining(false);
     }
   };
 
@@ -135,28 +151,53 @@ export const AdminModeration: React.FC = () => {
           <h2 className="text-3xl font-display font-black text-gray-900 tracking-tight mb-2">AI Extraction Hub</h2>
           <p className="text-sm text-gray-500 font-medium">Automated news monitoring & question generation.</p>
         </div>
-        <button 
-          onClick={handleScrape}
-          disabled={scraping}
-          className={cn(
-            "flex items-center gap-3 px-8 py-4 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all duration-500 shadow-xl",
-            scraping 
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
-              : "bg-bd-green text-white hover:bg-bd-green-dark shadow-bd-green/20"
-          )}
-        >
-          {scraping ? (
-            <>
-              <RefreshCw size={20} className="animate-spin" />
-              Scraping Portals...
-            </>
-          ) : (
-            <>
-              <Newspaper size={20} />
-              Fetch Latest News
-            </>
-          )}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button 
+            onClick={refineAll}
+            disabled={bulkRefining || pending.filter(q => q.status === 'pending' && q.question.endsWith('?')).length === 0}
+            className={cn(
+              "flex items-center gap-2 px-6 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all duration-500 shadow-xl border",
+              bulkRefining
+                ? "bg-bd-green/10 text-bd-green border-bd-green/20"
+                : "bg-white text-gray-900 border-gray-100 hover:border-bd-green hover:text-bd-green"
+            )}
+          >
+            {bulkRefining ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                Processing Bulk...
+              </>
+            ) : (
+              <>
+                <BrainCircuit size={16} />
+                Bulk AI Refine ({pending.filter(q => q.status === 'pending' && q.question.endsWith('?')).length})
+              </>
+            )}
+          </button>
+          
+          <button 
+            onClick={handleScrape}
+            disabled={scraping}
+            className={cn(
+              "flex items-center gap-3 px-8 py-4 rounded-[1.5rem] font-black text-sm uppercase tracking-widest transition-all duration-500 shadow-xl",
+              scraping 
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                : "bg-gray-900 text-white hover:bg-bd-green shadow-gray-900/20"
+            )}
+          >
+            {scraping ? (
+              <>
+                <RefreshCw size={20} className="animate-spin" />
+                Scraping Portals...
+              </>
+            ) : (
+              <>
+                <Newspaper size={20} />
+                Fetch Latest News
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
