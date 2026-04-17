@@ -156,6 +156,21 @@ export const AdminModeration: React.FC = () => {
     }
   };
 
+  const purgeRejected = async () => {
+    const rejected = pending.filter(q => q.status === 'rejected');
+    if (rejected.length === 0) return;
+    
+    if (confirm(`Are you sure you want to permanently purge ${rejected.length} rejected items from the database?`)) {
+      try {
+        for (const item of rejected) {
+          if (item.id) await deleteQuestion(item.id);
+        }
+      } catch (error) {
+        console.error('Purge failed:', error);
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-8 bg-white rounded-[2.5rem] shadow-xl border border-gray-100">
@@ -195,6 +210,15 @@ export const AdminModeration: React.FC = () => {
                 Bulk AI Refine ({pending.filter(q => q.status === 'pending' && q.question.endsWith('?')).length})
               </>
             )}
+          </button>
+          
+          <button 
+            onClick={purgeRejected}
+            disabled={pending.filter(q => q.status === 'rejected').length === 0}
+            className="flex items-center gap-2 px-6 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all duration-500 bg-white text-gray-400 border border-gray-100 hover:text-bd-red hover:border-bd-red disabled:opacity-50 disabled:cursor-not-allowed group/purge"
+          >
+            <XCircle size={16} className="group-hover/purge:scale-110 transition-transform" />
+            Purge Rejected ({pending.filter(q => q.status === 'rejected').length})
           </button>
           
           <button 

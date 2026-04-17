@@ -8,7 +8,7 @@ import * as cheerio from "cheerio";
 import cron from "node-cron";
 import fs from "fs";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, Timestamp, query, where, getDocs, doc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, Timestamp, query, where, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
@@ -38,23 +38,26 @@ async function startServer() {
     { name: "Kaler Kantho", url: "https://www.kalerkantho.com/online/national" }
   ];
 
-  const refineWithAI = async (headline: string): Promise<{ question: string; category: string }> => {
+  const refineWithAI = async (headline: string): Promise<{ question: string; category: string } | null> => {
     try {
       const prompt = `Convert this news headline into a neutral, unbiased YES/NO polling question for a national governance platform. 
+      The question should be concise, high-end, and stimulate critical thinking.
+      If the headline is not suitable for a governance poll (e.g., sports, celebrity gossip, duplicate triviality), return empty strings.
+      
       Also provide a one-word category (National, Economy, Environment, Tech, or Crisis).
       
       Headline: "${headline}"`;
 
       const result = await genAI.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              question: { type: Type.STRING },
-              category: { type: Type.STRING }
+             question: { type: Type.STRING },
+             category: { type: Type.STRING }
             },
             required: ["question", "category"]
           }
@@ -62,13 +65,57 @@ async function startServer() {
       });
 
       const data = JSON.parse(result.text || "{}");
+      
+      if (!data.question || data.question.length < 15 || data.question.toLowerCase().includes("blank")) {
+        console.warn(`[AI] Rejected low-quality generation for: ${headline}`);
+        return null;
+      }
+
       return {
-        question: data.question || `${headline}?`,
+        question: data.question,
         category: data.category || "National"
       };
     } catch (e) {
       console.error("AI Refinement on server failed:", e);
-      return { question: `${headline}?`, category: "National" };
+      return null;
+    }
+  };
+
+  const autoCleanupData = async () => {
+    console.log("[CLEANUP] Starting periodic data maintenance...");
+    try {
+      // Delete rejected questions older than 3 days
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const rejectedQ = query(
+        collection(db, 'pending_questions'), 
+        where('status', '==', 'rejected'),
+        where('createdAt', '<', Timestamp.fromDate(threeDaysAgo))
+      );
+      const rejectedSnap = await getDocs(rejectedQ);
+      let deletedCount = 0;
+      for (const d of rejectedSnap.docs) {
+        await deleteDoc(d.ref);
+        deletedCount++;
+      }
+
+      // Delete pending questions older than 7 days (keep it fresh)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const pendingQ = query(
+        collection(db, 'pending_questions'), 
+        where('status', '==', 'pending'),
+        where('createdAt', '<', Timestamp.fromDate(sevenDaysAgo))
+      );
+      const pendingSnap = await getDocs(pendingQ);
+      for (const d of pendingSnap.docs) {
+        await deleteDoc(d.ref);
+        deletedCount++;
+      }
+
+      console.log(`[CLEANUP] Successfully purged ${deletedCount} old/low-value items.`);
+    } catch (err) {
+      console.error("[CLEANUP ERROR]", err);
     }
   };
 
@@ -103,7 +150,7 @@ async function startServer() {
         // Advanced extraction logic
         $('h1, h2, h3, .title, .headline').each((_, el) => {
           const headline = $(el).text().trim().replace(/[\n\t\r]/g, " ");
-          if (headline.length > 25 && headline.length < 250) {
+          if (headline.length > 30 && headline.length < 300) {
             // Find context for metadata
             const context = $(el).closest('article, .story, .card, .content, .item, .news-block');
             const timeEl = context.find('time, .time, .date, .timestamp, .publish-time').first();
@@ -113,9 +160,9 @@ async function startServer() {
           }
         });
 
-        // Unique headlines only, limit to top 8 candidates per source to keep queue clean
-        const uniqueCandidates = Array.from(new Map(candidates.map(c => [c.headline.toLowerCase(), c])).values()).slice(0, 8);
-        console.log(`[SCRAPE] Found ${uniqueCandidates.length} unique candidates from ${source.name}`);
+        // Unique headlines only, limit to top 5 candidates per source to keep queue ultra-clean
+        const uniqueCandidates = Array.from(new Map(candidates.map(c => [c.headline.toLowerCase(), c])).values()).slice(0, 5);
+        console.log(`[SCRAPE] Found ${uniqueCandidates.length} unique filtered candidates from ${source.name}`);
 
         for (const item of uniqueCandidates) {
           // Robust Deduplication
@@ -127,20 +174,24 @@ async function startServer() {
             console.log(`[AI] Refining: ${item.headline.substring(0, 50)}...`);
             const refined = await refineWithAI(item.headline);
 
-            await addDoc(collection(db, 'pending_questions'), {
-              headline: item.headline,
-              question: refined.question,
-              category: refined.category,
-              source: source.name,
-              sourceUrl: source.url,
-              publishedDate: item.time || new Date().toLocaleString(),
-              status: 'pending',
-              createdAt: Timestamp.now(),
-              aiProcessed: true,
-              engagement: 0
-            });
-            totalNewItems++;
-            console.log(`[SAVED] ${source.name} item refined and queued.`);
+            if (refined && refined.question) {
+              await addDoc(collection(db, 'pending_questions'), {
+                headline: item.headline,
+                question: refined.question,
+                category: refined.category,
+                source: source.name,
+                sourceUrl: source.url,
+                publishedDate: item.time || new Date().toLocaleString(),
+                status: 'pending',
+                createdAt: Timestamp.now(),
+                aiProcessed: true,
+                engagement: 0
+              });
+              totalNewItems++;
+              console.log(`[SAVED] ${source.name} item refined and queued.`);
+            } else {
+              console.log(`[SKIP] Question rejected or invalid for headline: ${item.headline.substring(0, 30)}`);
+            }
           }
         }
       } catch (err: any) {
@@ -150,15 +201,18 @@ async function startServer() {
       await new Promise(r => setTimeout(r, 1500));
     }
 
+    // Run cleanup after every scrape to keep memory clear
+    await autoCleanupData();
+
     // Record system health
     await setDoc(doc(db, 'system_meta', 'news_extraction'), {
       lastExtraction: Timestamp.now(),
       status: 'healthy',
       itemsFound: totalNewItems,
-      version: '2.1.0-fullstack'
+      version: '2.2.0-clean-memory'
     });
 
-    console.log(`[SYNC COMPLETE] Extracted ${totalNewItems} new strategic items.`);
+    console.log(`[SYNC COMPLETE] Extracted ${totalNewItems} new verified strategic items.`);
     return totalNewItems;
   };
 

@@ -167,6 +167,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
   const [insights, setInsights] = useState<GovernanceInsight | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [activeTab, setActiveTab] = useState<'analytics' | 'governance' | 'users'>('analytics');
+  const [trendTimeRange, setTrendTimeRange] = useState<7 | 14 | 30>(7);
+  const [trendMode, setTrendMode] = useState<'poll' | 'historical'>('poll');
   
   const recentActivePolls = useMemo(() => {
     return [...polls]
@@ -326,13 +328,80 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
       fullQuestion: p.question
     }));
 
+    // Calculate Historical Sentiment Shifts (Aggregated by Date)
+    const now = new Date();
+    const startDate = new Date();
+    startDate.setDate(now.getDate() - trendTimeRange);
+
+    const dateMap = new Map<string, { 
+      yes: number, 
+      no: number, 
+      total: number, 
+      categories: Record<string, { yes: number, total: number }> 
+    }>();
+    
+    // Initialize date map with zeros for the range
+    for (let i = 0; i <= trendTimeRange; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const dateKey = d.toISOString().split('T')[0];
+      dateMap.set(dateKey, { yes: 0, no: 0, total: 0, categories: {} });
+    }
+
+    polls.forEach(p => {
+      const dateKey = p.createdAt.toDate().toISOString().split('T')[0];
+      if (dateMap.has(dateKey)) {
+        const entry = dateMap.get(dateKey)!;
+        entry.yes += p.yesVotes;
+        entry.no += p.noVotes;
+        entry.total += p.totalVotes;
+        
+        if (!entry.categories[p.category]) {
+          entry.categories[p.category] = { yes: 0, total: 0 };
+        }
+        entry.categories[p.category].yes += p.yesVotes;
+        entry.categories[p.category].total += p.totalVotes;
+      }
+    });
+
+    const historicalTrendData = Array.from(dateMap.entries()).map(([date, data]) => {
+      const catResults: Record<string, number | null> = {};
+      Object.keys(data.categories).forEach(cat => {
+        const catData = data.categories[cat];
+        catResults[cat] = catData.total > 0 ? Math.round((catData.yes / catData.total) * 100) : null;
+      });
+      return {
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        overall: data.total > 0 ? Math.round((data.yes / data.total) * 100) : null,
+        ...catResults
+      };
+    });
+
+    // Calculate Shift Indicators
+    const totalYesPct = totalVotes > 0 ? (totalYes / totalVotes) * 100 : 0;
+    const previousVotes = pollsToProcess.filter(p => p.createdAt.toDate() < startDate).reduce((acc, p) => acc + p.totalVotes, 0);
+    const previousYes = pollsToProcess.filter(p => p.createdAt.toDate() < startDate).reduce((acc, p) => acc + p.yesVotes, 0);
+    const prevYesPct = previousVotes > 0 ? (previousYes / previousVotes) * 100 : totalYesPct;
+    const opinionShift = totalYesPct - prevYesPct;
+    
+    // Calculate Volatility & Acceleration
+    const overallSeries = historicalTrendData.map(d => d.overall).filter(v => v !== null) as number[];
+    const volatility = overallSeries.length > 2 
+      ? Math.sqrt(overallSeries.reduce((acc, v, i, arr) => i > 0 ? acc + Math.pow(v - arr[i-1], 2) : 0, 0) / (overallSeries.length - 1))
+      : 0;
+    
+    const opinionAcceleration = overallSeries.length > 3
+      ? (overallSeries[overallSeries.length - 1] - overallSeries[overallSeries.length - 2]) - 
+        (overallSeries[overallSeries.length - 2] - overallSeries[overallSeries.length - 3])
+      : 0;
+
     const topConcern = [...pollsToProcess].sort((a, b) => b.totalVotes - a.totalVotes)[0];
     
     const consensusRate = totalVotes > 0 ? Math.round((Math.max(totalYes, totalNo) / totalVotes) * 100) : 0;
     const impactScore = Math.round((totalVotes / 1000) * (consensusRate / 100) * 10);
 
-    return { totalVotes, totalYes, totalNo, pieData, trendData, topConcern, consensusRate, impactScore };
-  }, [filteredPolls]);
+    return { totalVotes, totalYes, totalNo, pieData, trendData, historicalTrendData, opinionShift, volatility, opinionAcceleration, topConcern, consensusRate, impactScore };
+  }, [filteredPolls, polls, trendTimeRange]);
 
   const categories = ['All', 'National', 'Economy', 'Policy', 'Environment', 'Tech'];
 
@@ -530,28 +599,184 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
             </div>
 
             {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white p-8 rounded-[3rem] shadow-2xl border border-gray-100"
+                className="lg:col-span-2 bg-white p-10 rounded-[3.5rem] shadow-2xl border border-gray-100 group relative overflow-hidden"
               >
-                <h4 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-                  <TrendingUp size={20} className="text-bd-green" />
-                  Sentiment Trends (%)
-                </h4>
-                <div className="h-[300px] w-full relative">
-                  <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={300}>
-                    <LineChart data={stats.trendData}>
+                <div className="absolute top-0 right-0 p-8 flex gap-3 z-10">
+                  <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                    <button 
+                      onClick={() => setTrendMode('poll')}
+                      className={cn(
+                        "px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                        trendMode === 'poll' ? "bg-white text-gray-900 shadow-sm" : "text-gray-400"
+                      )}
+                    >
+                      Recent Polls
+                    </button>
+                    <button 
+                      onClick={() => setTrendMode('historical')}
+                      className={cn(
+                        "px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                        trendMode === 'historical' ? "bg-white text-gray-900 shadow-sm" : "text-gray-400"
+                      )}
+                    >
+                      Historical Trend
+                    </button>
+                  </div>
+
+                  {trendMode === 'historical' && (
+                    <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100 font-mono">
+                      {[7, 14, 30].map(days => (
+                        <button 
+                          key={days}
+                          onClick={() => setTrendTimeRange(days as any)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all",
+                            trendTimeRange === days ? "bg-bd-green text-white shadow-sm" : "text-gray-400"
+                          )}
+                        >
+                          {days}d
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-start justify-between mb-10">
+                  <div>
+                    <h4 className="text-sm font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                      <div className="p-2 bg-bd-green/10 text-bd-green rounded-lg">
+                        <TrendingUp size={20} />
+                      </div>
+                      {trendMode === 'poll' ? 'Recent Sentiment Snapshot' : 'Historical Sentiment Shifts'}
+                    </h4>
+                    <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-widest">
+                      {trendMode === 'poll' ? 'Individual performance of latest referendums' : `National opinion movement over the last ${trendTimeRange} days`}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-end pr-32 xl:pr-48">
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Opinion Shift</span>
+                    <div className={cn(
+                      "flex items-center gap-2 text-xl font-display font-black",
+                      stats.opinionShift >= 0 ? "text-bd-green" : "text-bd-red"
+                    )}>
+                      {stats.opinionShift >= 0 ? '+' : ''}{stats.opinionShift.toFixed(1)}%
+                      <Activity size={16} />
+                    </div>
+                  </div>
+
+                  <div className="hidden xl:flex flex-col items-end pr-8">
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Volatility Index</span>
+                    <div className="flex items-center gap-2 text-xl font-display font-black text-amber-500">
+                      {stats.volatility.toFixed(2)}
+                      <Zap size={16} />
+                    </div>
+                  </div>
+
+                  <div className="hidden xl:flex flex-col items-end">
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Momentum (Accel)</span>
+                    <div className={cn(
+                      "flex items-center gap-2 text-xl font-display font-black",
+                      stats.opinionAcceleration >= 0 ? "text-bd-green" : "text-bd-red"
+                    )}>
+                      {stats.opinionAcceleration > 0 ? '↑' : stats.opinionAcceleration < 0 ? '↓' : '→'}
+                      {Math.abs(stats.opinionAcceleration).toFixed(1)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-[350px] w-full relative">
+                  <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                    <LineChart data={(trendMode === 'poll' ? stats.trendData : stats.historicalTrendData) as any[]}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" hide />
-                      <YAxis />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.1)' }}
+                      <XAxis 
+                        dataKey={trendMode === 'poll' ? "name" : "date"} 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fontWeight: 800, fill: '#9ca3af' }}
+                        dy={10}
+                        hide={trendMode === 'poll'}
                       />
-                      <Legend />
-                      <Line type="monotone" dataKey="yes" stroke="#006A4E" strokeWidth={4} dot={{ r: 6 }} activeDot={{ r: 8 }} />
-                      <Line type="monotone" dataKey="no" stroke="#F42A41" strokeWidth={4} dot={{ r: 6 }} activeDot={{ r: 8 }} />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 10, fontWeight: 800, fill: '#9ca3af' }}
+                        domain={[0, 100]}
+                        tickFormatter={(v) => `${v}%`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '24px', 
+                          border: 'none', 
+                          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+                          padding: '20px',
+                          textTransform: 'uppercase',
+                          fontSize: '10px',
+                          fontWeight: 900,
+                          letterSpacing: '1px'
+                        }}
+                      />
+                      <Legend 
+                        verticalAlign="top" 
+                        align="left" 
+                        height={40}
+                        iconType="circle"
+                        formatter={(value) => <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{value}</span>}
+                      />
+                      {trendMode === 'poll' ? (
+                        <>
+                          <Line 
+                            type="monotone" 
+                            name="Yes Sentiment"
+                            dataKey="yes" 
+                            stroke="#006A4E" 
+                            strokeWidth={5} 
+                            dot={{ r: 4, strokeWidth: 0, fill: '#006A4E' }} 
+                            activeDot={{ r: 8, strokeWidth: 4, stroke: 'white' }} 
+                            animationDuration={2000}
+                          />
+                          <Line 
+                            type="monotone" 
+                            name="No Sentiment"
+                            dataKey="no" 
+                            stroke="#F42A41" 
+                            strokeWidth={5} 
+                            dot={{ r: 4, strokeWidth: 0, fill: '#F42A41' }} 
+                            activeDot={{ r: 8, strokeWidth: 4, stroke: 'white' }} 
+                            animationDuration={2000}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Line 
+                            type="monotone" 
+                            name="National Avg"
+                            dataKey="overall" 
+                            stroke="#000000" 
+                            strokeWidth={4} 
+                            strokeDasharray="8 8"
+                            dot={false}
+                            animationDuration={2500}
+                          />
+                          {categories.filter(c => c !== 'All').map((cat, i) => (
+                            <Line 
+                              key={cat}
+                              type="monotone" 
+                              name={cat}
+                              dataKey={cat} 
+                              stroke={COLORS[i % COLORS.length]} 
+                              strokeWidth={3} 
+                              dot={false}
+                              connectNulls
+                              animationDuration={1500}
+                            />
+                          ))}
+                        </>
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -561,34 +786,62 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1 }}
-                className="bg-white p-8 rounded-[3rem] shadow-2xl border border-gray-100"
+                className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-gray-100 flex flex-col"
               >
-                <h4 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-                  <PieIcon size={20} className="text-bd-red" />
-                  Policy Heatmap (By Category)
+                <h4 className="text-sm font-black text-gray-900 uppercase tracking-[0.2em] mb-10 flex items-center gap-3">
+                  <div className="p-2 bg-bd-red/10 text-bd-red rounded-lg">
+                    <PieIcon size={20} />
+                  </div>
+                  Engagement Heatmap
                 </h4>
-                <div className="h-[300px] w-full relative">
-                  <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={300}>
+                <div className="flex-1 min-h-[300px] w-full relative mb-8">
+                  <ResponsiveContainer width="100%" height="100%" debounce={50}>
                     <PieChart>
                       <Pie
                         data={stats.pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
+                        innerRadius={80}
+                        outerRadius={120}
+                        paddingAngle={8}
                         dataKey="value"
+                        animationBegin={500}
+                        animationDuration={2000}
                       >
                         {stats.pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
                         ))}
                       </Pie>
                       <Tooltip 
-                        contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 50px rgba(0,0,0,0.1)' }}
+                        contentStyle={{ 
+                          borderRadius: '20px', 
+                          border: 'none', 
+                          boxShadow: '0 20px 50px rgba(0,0,0,0.1)',
+                          textTransform: 'uppercase',
+                          fontSize: '10px',
+                          fontWeight: 900
+                        }}
                       />
-                      <Legend />
+                      <Legend 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                        iconType="circle"
+                        formatter={(value) => <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
+                </div>
+                <div className="p-6 bg-gray-50 rounded-[2rem] border border-gray-100 flex items-center justify-between">
+                   <div>
+                     <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Top Node</span>
+                     <span className="text-xs font-black text-gray-900 uppercase tracking-widest">{stats.topConcern?.category || 'National'}</span>
+                   </div>
+                   <div className="h-10 w-[1px] bg-gray-200" />
+                   <div>
+                     <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Total Signals</span>
+                     <span className="text-xs font-black text-gray-900">{(stats.totalVotes / 1000).toFixed(1)}k</span>
+                   </div>
                 </div>
               </motion.div>
             </div>
