@@ -1435,22 +1435,42 @@ const AppContent: React.FC = () => {
                       { label: 'Behavior Score', value: Math.round((profile?.behaviorScore || 0) * 20), max: 20, icon: <Activity size={16} /> },
                       { label: 'Device Trust', value: Math.round((profile?.deviceTrust || 0) * 10), max: 10, icon: <Settings2 size={16} /> },
                     ].map((item, i) => (
-                      <div key={i} className="p-5 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center",
-                            item.value > 0 ? "bg-bd-green/10 text-bd-green" : "bg-gray-200 text-gray-400"
-                          )}>
-                            {item.icon}
+                      <div key={i} className="p-5 bg-gray-50 rounded-3xl border border-gray-100 group hover:border-bd-green/20 transition-all duration-300">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500",
+                              item.value > 0 ? "bg-bd-green/10 text-bd-green" : "bg-gray-200 text-gray-400",
+                              "group-hover:scale-110"
+                            )}>
+                              {item.icon}
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">{item.label}</p>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-lg font-display font-black text-gray-900">{item.value}</span>
+                                <span className="text-[10px] font-bold text-gray-400">/ {item.max} PTS</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.label}</p>
-                            <p className="text-sm font-black text-gray-900">{item.value}/{item.max} Points</p>
-                          </div>
+                          {item.value === item.max && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-bd-green/10 rounded-lg">
+                              <CheckCircle2 size={14} className="text-bd-green" />
+                              <span className="text-[8px] font-black text-bd-green uppercase tracking-widest">Verified</span>
+                            </div>
+                          )}
                         </div>
-                        {item.value === item.max && (
-                          <CheckCircle2 size={20} className="text-bd-green" />
-                        )}
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(item.value / item.max) * 100}%` }}
+                            transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 + i * 0.1 }}
+                            className={cn(
+                              "h-full rounded-full shadow-[0_0_10px_rgba(0,106,78,0.2)]",
+                              item.value === item.max ? "bg-bd-green" : "bg-bd-green/60"
+                            )}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
