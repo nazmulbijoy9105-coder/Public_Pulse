@@ -39,7 +39,8 @@ import {
   Plus,
   Newspaper,
   Settings2,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
 import { Poll, UserProfile, NewsArticle } from '../types';
 import { generateGovernanceInsights, simulatePolicyReaction, GovernanceInsight } from '../services/aiAnalyticsService';
@@ -102,21 +103,25 @@ const BangladeshMap: React.FC<{ data: any }> = ({ data }) => {
         })}
       </svg>
 
-      <div className="absolute top-12 left-12 z-20 space-y-4">
+      <div className="absolute top-12 left-12 z-20 space-y-6">
         <div>
-          <h4 className="text-3xl font-display font-black text-white flex items-center gap-3 tracking-tighter">
-            <MapIcon size={32} className="text-bd-red" />
+          <h4 className="text-4xl font-display font-black text-white flex items-center gap-4 tracking-tighter">
+            <div className="p-3 bg-bd-red/20 rounded-2xl backdrop-blur-md border border-bd-red/30">
+              <MapIcon size={32} className="text-bd-red shadow-[0_0_15px_rgba(244,42,65,0.5)]" />
+            </div>
             Strategic Sentiment
           </h4>
-          <p className="text-bd-green text-[10px] font-black uppercase tracking-[0.3em] mt-1">Division Distribution • Referendum Analytics</p>
+          <p className="text-bd-green text-[10px] font-black uppercase tracking-[0.4em] mt-3 pl-1 opacity-80">Division Distribution Analysis</p>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {divisions.slice(0, 4).map(d => (
-            <div key={d.id} className="flex items-center gap-2">
-              <div className="w-1 h-4 bg-white/20 rounded-full" />
-              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{d.id}</span>
-              <span className="text-[10px] font-black text-bd-green">{Math.floor(Math.random() * 20 + 75)}%</span>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-3 p-6 bg-white/[0.03] backdrop-blur-md rounded-[2rem] border border-white/5 shadow-2xl">
+          {divisions.map(d => (
+            <div key={d.id} className="flex items-center justify-between gap-4 group/item">
+              <div className="flex items-center gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full shadow-sm bg-white/20 group-hover/item:bg-bd-green transition-colors" />
+                <span className="text-[10px] font-black text-white/50 uppercase tracking-widest group-hover/item:text-white transition-colors">{d.id}</span>
+              </div>
+              <span className="text-[10px] font-black text-bd-green tabular-nums">{Math.floor(Math.random() * 20 + 75)}%</span>
             </div>
           ))}
         </div>
@@ -125,24 +130,32 @@ const BangladeshMap: React.FC<{ data: any }> = ({ data }) => {
       <div className="absolute bottom-12 right-12 flex flex-col items-end gap-6 z-20">
         <div className="flex gap-4">
           <div className="flex flex-col items-end">
-            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Status</span>
-            <div className="flex items-center gap-2 px-4 py-2 bg-bd-green/10 backdrop-blur-md rounded-full border border-bd-green/20">
-              <div className="w-2 h-2 bg-bd-green rounded-full animate-pulse shadow-[0_0_10px_rgba(0,106,78,1)]" />
-              <span className="text-[9px] font-black text-bd-green uppercase tracking-widest leading-none">Live Monitoring</span>
+            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] mb-2 pr-1">System Status</span>
+            <div className="flex items-center gap-3 px-5 py-2.5 bg-bd-green/10 backdrop-blur-xl rounded-full border border-bd-green/20 shadow-lg shadow-bd-green/5">
+              <div className="w-2.5 h-2.5 bg-bd-green rounded-full animate-pulse shadow-[0_0_12px_rgba(0,106,78,1)]" />
+              <span className="text-[9px] font-black text-bd-green uppercase tracking-[0.2em] leading-none">Live Node Monitoring</span>
             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-white/5 backdrop-blur-xl rounded-[2rem] border border-white/10 space-y-4 min-w-[200px]">
-          <div className="flex justify-between items-end">
-            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Consensus</span>
-            <span className="text-xl font-display font-black text-white">78.4%</span>
+        <div className="p-8 bg-white/[0.04] backdrop-blur-2xl rounded-[2.5rem] border border-white/10 space-y-5 min-w-[240px] shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <Activity size={40} className="text-white" />
           </div>
-          <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-            <motion.div initial={{ width: 0 }} animate={{ width: '78.4%' }} className="h-full bg-bd-green shadow-[0_0_15px_rgba(0,106,78,0.5)]" />
+          <div className="flex justify-between items-end relative z-10">
+            <div>
+              <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] block mb-1">National</span>
+              <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">Consensus Rate</span>
+            </div>
+            <span className="text-3xl font-display font-black text-white shadow-sm">78.4%</span>
           </div>
-          <p className="text-[8px] font-bold text-white/30 uppercase leading-relaxed">
-            Overall division alignment across<br/>all active national portals.
+          <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden relative z-10">
+            <motion.div initial={{ width: 0 }} animate={{ width: '78.4%' }} className="h-full bg-bd-green relative">
+               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" style={{ backgroundSize: '100% 100%' }} />
+            </motion.div>
+          </div>
+          <p className="text-[9px] font-bold text-white/20 uppercase leading-relaxed tracking-wider relative z-10">
+            Real-time aggregate alignment across<br/>all active national governance portals.
           </p>
         </div>
       </div>
@@ -413,24 +426,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {profile?.role === 'admin' ? (
                 <div className="lg:col-span-2 bg-bd-green/5 p-8 rounded-[2.5rem] border border-bd-green/20 relative overflow-hidden flex flex-col justify-between">
-                   <div className="relative z-10">
+                   <div className="relative z-10 text-left">
                      <h4 className="text-xs font-black text-bd-green uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
                        <Plus size={16} /> Broadcast National Referendum
                      </h4>
+                     <label htmlFor="dashboard-new-poll" className="sr-only">Strategic Policy Question</label>
                      <textarea 
+                        id="dashboard-new-poll"
+                        name="question"
                         value={newQuestion}
                         onChange={(e) => setNewQuestion(e.target.value)}
                         placeholder="Enter strategic policy question..."
                         className="w-full bg-white/50 backdrop-blur-sm p-4 rounded-2xl border-none ring-1 ring-bd-green/20 focus:ring-2 focus:ring-bd-green outline-none text-sm font-bold resize-none h-24 mb-4"
                      />
                      <div className="flex gap-4">
-                        <select 
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          className="flex-1 bg-white/50 p-4 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none border border-bd-green/10"
-                        >
-                          {['National', 'Economy', 'Policy', 'Environment', 'Tech'].map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        <div className="flex-1 space-y-1">
+                          <label htmlFor="dashboard-new-category" className="sr-only">Category</label>
+                          <select 
+                            id="dashboard-new-category"
+                            name="category"
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            className="w-full bg-white/50 p-4 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none border border-bd-green/10"
+                          >
+                            {['National', 'Economy', 'Policy', 'Environment', 'Tech'].map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
                         <button 
                           onClick={handleCreatePoll}
                           disabled={creating || !newQuestion}
@@ -620,45 +641,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                   recentNews.map((article, index) => (
                     <motion.div
                       key={article.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.1 }}
-                      className="group relative h-full flex flex-col p-8 bg-white border border-gray-100 hover:border-bd-green/30 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-bd-green/5 transition-all duration-500 overflow-hidden"
+                      className="group relative h-full flex flex-col p-8 bg-white border border-gray-100 hover:border-bd-green/30 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-bd-green/5 transition-all duration-700 overflow-hidden"
                     >
-                      <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-10 h-10 bg-bd-green/10 rounded-full flex items-center justify-center text-bd-green rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                          <Zap size={20} fill="currentColor" />
+                      {/* Subetle decorative pattern in card */}
+                      <div className="absolute -top-12 -right-12 w-32 h-32 bg-bd-green/[0.03] rounded-full blur-2xl group-hover:bg-bd-green/10 transition-colors duration-700" />
+                      
+                      <div className="relative z-10 flex flex-col h-full">
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-500 group-hover:bg-bd-green/5 group-hover:text-bd-green transition-colors">
+                            {article.category}
+                          </div>
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                            <Clock size={12} className="text-gray-300" />
+                            {article.publishedDate}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="px-3 py-1 bg-gray-100 rounded-lg">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">{article.category}</span>
+                        <h4 className="text-xl font-display font-black text-gray-900 mb-6 line-clamp-3 leading-[1.3] group-hover:text-bd-green transition-colors flex-1">
+                          {article.headline}
+                        </h4>
+
+                        <div className="pt-6 border-t border-gray-50 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-bd-green/10 flex items-center justify-center text-bd-green">
+                               <Globe size={14} />
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest italic leading-none mb-1">Source</p>
+                              <p className="text-[10px] font-black text-gray-600 truncate max-w-[120px]">
+                                {article.source}
+                              </p>
+                            </div>
+                          </div>
+                          <a
+                            href={article.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-10 h-10 bg-gray-50 hover:bg-bd-green text-gray-400 hover:text-white rounded-xl flex items-center justify-center transition-all duration-500 shadow-sm"
+                          >
+                            <ExternalLink size={18} />
+                          </a>
                         </div>
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">•</span>
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{article.publishedDate}</span>
-                      </div>
-
-                      <h4 className="text-xl font-display font-black text-gray-900 mb-4 line-clamp-3 leading-[1.3] group-hover:text-bd-green transition-colors">
-                        {article.headline}
-                      </h4>
-
-                      <div className="mt-auto pt-6 border-t border-gray-50 flex items-center justify-between">
-                        <div>
-                          <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Intelligence Source</p>
-                          <p className="text-[11px] font-bold text-gray-600 flex items-center gap-1.5">
-                            <Globe size={12} className="text-bd-green" />
-                            {article.source}
-                          </p>
-                        </div>
-                        <a
-                          href={article.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-3 bg-gray-50 hover:bg-bd-green text-gray-400 hover:text-white rounded-xl transition-all duration-300"
-                        >
-                          <ExternalLink size={18} />
-                        </a>
                       </div>
                     </motion.div>
                   ))
@@ -891,8 +917,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ polls, user, profile, onVi
                     </button>
                   ))}
                 </div>
-                <div className="relative">
+                <div className="relative text-left">
+                  <label htmlFor="simulator-policy" className="sr-only">Hypothetical Policy</label>
                   <textarea 
+                    id="simulator-policy"
+                    name="hypotheticalPolicy"
                     value={hypotheticalPolicy}
                     onChange={(e) => setHypotheticalPolicy(e.target.value)}
                     placeholder="Enter a hypothetical policy (e.g., 'Implementing a 5% carbon tax on industrial emissions')..."

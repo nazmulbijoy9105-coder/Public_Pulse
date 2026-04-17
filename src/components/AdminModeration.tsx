@@ -10,7 +10,8 @@ import {
   ExternalLink, 
   Plus,
   AlertCircle,
-  BrainCircuit
+  BrainCircuit,
+  Globe
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -35,8 +36,16 @@ export const AdminModeration: React.FC = () => {
   const [refining, setRefining] = useState<string | null>(null);
   const [bulkRefining, setBulkRefining] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [systemHealth, setSystemHealth] = useState<any>(null);
 
   useEffect(() => {
+    // Listen to system metadata
+    const metaUnsub = onSnapshot(doc(db, 'system_meta', 'news_extraction'), (snapshot) => {
+      if (snapshot.exists()) {
+        setSystemHealth(snapshot.data());
+      }
+    });
+
     const q = query(
       collection(db, 'pending_questions'), 
       orderBy('createdAt', 'desc')
@@ -53,7 +62,10 @@ export const AdminModeration: React.FC = () => {
       handleFirestoreError(error, OperationType.LIST, 'pending_questions');
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      metaUnsub();
+    };
   }, []);
 
   const handleScrape = async () => {
@@ -149,7 +161,17 @@ export const AdminModeration: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-8 bg-white rounded-[2.5rem] shadow-xl border border-gray-100">
         <div>
           <h2 className="text-3xl font-display font-black text-gray-900 tracking-tight mb-2">AI Extraction Hub</h2>
-          <p className="text-sm text-gray-500 font-medium">Automated news monitoring & question generation.</p>
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-gray-500 font-medium">Automated news monitoring & question generation.</p>
+            {systemHealth && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-bd-green/5 rounded-full border border-bd-green/10">
+                <div className="w-1.5 h-1.5 bg-bd-green rounded-full animate-pulse" />
+                <span className="text-[9px] font-black uppercase text-bd-green tracking-widest">
+                  Last Sync: {systemHealth.lastExtraction?.toDate().toLocaleTimeString()} • {systemHealth.itemsFound} Items
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-3">
           <button 
@@ -200,78 +222,109 @@ export const AdminModeration: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-8">
         <AnimatePresence mode="popLayout">
           {pending.filter(q => q.status === 'pending').map((item) => (
             <motion.div 
               key={item.id}
               layout
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-gray-100 relative overflow-hidden group"
+              className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 relative overflow-hidden group hover:shadow-bd-green/5 transition-all duration-700"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-bd-green/5 rounded-bl-[5rem] -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-110" />
+              {/* Decorative Corner with Pattern */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-bd-green/[0.03] rounded-bl-[6rem] -mr-20 -mt-20 group-hover:bg-bd-green/[0.05] transition-colors duration-700 overflow-hidden pointer-events-none">
+                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #006A4E 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+              </div>
               
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="px-4 py-1.5 bg-bd-green/10 text-bd-green rounded-full text-[10px] font-black uppercase tracking-widest">
-                    {item.category}
+              <div className="p-8 md:p-10 flex flex-col lg:flex-row gap-10 items-stretch">
+                <div className="flex-1 space-y-8 relative">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="px-5 py-2 bg-bd-green/10 text-bd-green rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-sm border border-bd-green/5">
+                      {item.category}
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      <Globe size={12} className="text-bd-green" />
+                      {item.source}
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">
+                      <Clock size={12} />
+                      {item.publishedDate}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    <Clock size={12} />
-                    {item.source} • {item.publishedDate}
+
+                  <div className="grid grid-cols-1 gap-8">
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-1.5 h-1.5 bg-gray-300 rounded-full" />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Official Source Headline</span>
+                      </div>
+                      <p className="text-base text-gray-500 font-medium leading-relaxed italic border-l-4 border-gray-100 pl-6 py-1">
+                        "{item.headline}"
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-1.5 h-1.5 bg-bd-green rounded-full shadow-[0_0_8px_rgba(0,106,78,0.5)]" />
+                        <span className="text-[10px] font-black text-bd-green uppercase tracking-[0.3em]">AI Neutral Refinement</span>
+                      </div>
+                      <h3 className="text-2xl md:text-3xl font-display font-black text-gray-900 leading-tight tracking-tight">
+                        {item.question}
+                      </h3>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mb-8">
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Original Headline</div>
-                  <p className="text-sm text-gray-600 font-medium leading-relaxed italic mb-4">"{item.headline}"</p>
-                  
-                  <div className="text-[10px] font-black text-bd-green uppercase tracking-[0.2em] mb-2">AI Generated Question</div>
-                  <h3 className="text-xl font-display font-black text-gray-900 leading-tight">
-                    {item.question}
-                  </h3>
-                </div>
+                <div className="shrink-0 w-full lg:w-72 pt-6 lg:pt-0">
+                   <div className="h-full p-6 bg-gray-50 rounded-[2rem] border border-gray-100 flex flex-col justify-between gap-4">
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-gray-400 mb-4">
+                          <span>Moderation Flow</span>
+                          <BrainCircuit size={14} className="text-bd-green" />
+                        </div>
+                        
+                        <button 
+                          onClick={() => handleRefine(item)}
+                          disabled={!!refining}
+                          className={cn(
+                            "w-full flex items-center justify-center gap-3 py-4 bg-white border border-gray-200 text-gray-700 hover:border-bd-green hover:text-bd-green rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500 group/refine mb-3",
+                            refining === item.id && "animate-pulse"
+                          )}
+                        >
+                          <RefreshCw size={14} className={cn("group-hover/refine:rotate-180 transition-transform duration-500", refining === item.id && "animate-spin")} />
+                          Re-Refine with AI
+                        </button>
 
-                <div className="flex flex-wrap items-center justify-between gap-6 pt-6 border-t border-gray-50">
-                  <a 
-                    href={item.sourceUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-bd-green transition-colors"
-                  >
-                    <ExternalLink size={14} />
-                    Source Portal
-                  </a>
+                        <div className="grid grid-cols-2 gap-3">
+                           <button 
+                              onClick={() => rejectQuestion(item.id!)}
+                              className="flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-gray-400 hover:bg-bd-red/10 hover:text-bd-red hover:border-bd-red/30 rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all duration-300"
+                            >
+                              <XCircle size={14} />
+                              Reject
+                            </button>
+                            <a 
+                              href={item.sourceUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-gray-400 hover:border-bd-green hover:text-bd-green rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest transition-all duration-300"
+                            >
+                              <ExternalLink size={14} />
+                              View
+                            </a>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => handleRefine(item)}
-                      disabled={!!refining}
-                      className={cn(
-                        "p-4 bg-bd-green/5 text-bd-green hover:bg-bd-green hover:text-white rounded-2xl transition-all duration-300",
-                        refining === item.id && "animate-pulse"
-                      )}
-                      title="AI Refine"
-                    >
-                      <RefreshCw size={24} className={cn(refining === item.id && "animate-spin")} />
-                    </button>
-                    <button 
-                      onClick={() => rejectQuestion(item.id!)}
-                      className="p-4 bg-gray-50 text-gray-400 hover:bg-bd-red/10 hover:text-bd-red rounded-2xl transition-all duration-300"
-                      title="Reject"
-                    >
-                      <XCircle size={24} />
-                    </button>
-                    <button 
-                      onClick={() => approveQuestion(item)}
-                      className="flex items-center gap-3 px-8 py-4 bg-bd-green text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-bd-green-dark transition-all duration-500 shadow-lg shadow-bd-green/20"
-                    >
-                      <CheckCircle2 size={18} />
-                      Approve & Publish
-                    </button>
-                  </div>
+                      <button 
+                        onClick={() => approveQuestion(item)}
+                        className="w-full flex items-center justify-center gap-3 py-5 bg-gray-900 text-white hover:bg-bd-green rounded-[1.25rem] text-[11px] font-black uppercase tracking-widest transition-all duration-500 shadow-xl shadow-gray-200 hover:shadow-bd-green/30 mt-auto"
+                      >
+                        <CheckCircle2 size={16} />
+                        Publish Poll
+                      </button>
+                   </div>
                 </div>
               </div>
             </motion.div>

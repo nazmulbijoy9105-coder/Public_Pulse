@@ -393,49 +393,62 @@ const PollCard: React.FC<{
           <button
             onClick={() => handleVote(true)}
             disabled={voting}
-            className="flex flex-col items-center justify-center p-8 rounded-[2rem] bg-bd-green/5 hover:bg-bd-green text-bd-green hover:text-white transition-all duration-500 group/btn border border-bd-green/10"
+            className="flex flex-col items-center justify-center p-8 rounded-[2.5rem] bg-gray-50 hover:bg-bd-green text-bd-green hover:text-white transition-all duration-700 group/btn border border-gray-100 hover:border-bd-green shadow-sm hover:shadow-2xl hover:shadow-bd-green/20"
           >
-            <CheckCircle2 size={36} className="mb-3 group-hover/btn:scale-110 transition-transform duration-500" />
-            <span className="font-black text-xl tracking-tight">YES</span>
+            <CheckCircle2 size={40} className="mb-4 group-hover/btn:scale-110 group-hover/btn:rotate-6 transition-transform duration-500" />
+            <span className="font-black text-xl tracking-tighter">YES</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-0 group-hover/btn:opacity-100 transition-opacity">Cast Vote</span>
           </button>
           <button
             onClick={() => handleVote(false)}
             disabled={voting}
-            className="flex flex-col items-center justify-center p-8 rounded-[2rem] bg-bd-red/5 hover:bg-bd-red text-bd-red hover:text-white transition-all duration-500 group/btn border border-bd-red/10"
+            className="flex flex-col items-center justify-center p-8 rounded-[2.5rem] bg-gray-50 hover:bg-bd-red text-bd-red hover:text-white transition-all duration-700 group/btn border border-gray-100 hover:border-bd-red shadow-sm hover:shadow-2xl hover:shadow-bd-red/20"
           >
-            <XCircle size={36} className="mb-3 group-hover/btn:scale-110 transition-transform duration-500" />
-            <span className="font-black text-xl tracking-tight">NO</span>
+            <XCircle size={40} className="mb-4 group-hover/btn:scale-110 group-hover/btn:-rotate-6 transition-transform duration-500" />
+            <span className="font-black text-xl tracking-tighter">NO</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-0 group-hover/btn:opacity-100 transition-opacity">Cast Vote</span>
           </button>
         </div>
       ) : (
-        <div className="space-y-8">
-          <div className="relative h-16 bg-gray-50 rounded-[1.5rem] overflow-hidden flex p-1.5 border border-gray-100">
+        <div className="space-y-10">
+          <div className="relative h-20 bg-gray-100 rounded-[2rem] overflow-hidden flex p-2 border border-gray-200">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${yesPercent}%` }}
-              className="h-full bg-bd-green rounded-[1rem] flex items-center px-5 text-white font-black text-sm whitespace-nowrap shadow-lg shadow-bd-green/20"
+              className="h-full bg-bd-green flex items-center justify-between px-6 text-white font-black text-sm whitespace-nowrap shadow-lg shadow-bd-green/20 relative group/progress z-10"
+              style={{ borderRadius: '1.25rem 0.5rem 0.5rem 1.25rem' }}
             >
-              {yesPercent > 15 && `YES ${yesPercent}%`}
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} />
+                {yesPercent > 10 && `YES ${yesPercent}%`}
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer opacity-0 group-hover/progress:opacity-100" />
             </motion.div>
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${noPercent}%` }}
-              className="h-full bg-bd-red rounded-[1rem] flex items-center justify-end px-5 text-white font-black text-sm whitespace-nowrap ml-auto shadow-lg shadow-bd-red/20"
+              className="h-full bg-bd-red flex items-center justify-between px-6 text-white font-black text-sm whitespace-nowrap ml-auto shadow-lg shadow-bd-red/20 relative group/progress-no z-10"
+              style={{ borderRadius: '0.5rem 1.25rem 1.25rem 0.5rem' }}
             >
-              {noPercent > 15 && `${noPercent}% NO`}
+              <div className="absolute inset-0 bg-gradient-to-l from-transparent via-white/10 to-transparent animate-shimmer opacity-0 group-hover/progress-no:opacity-100" />
+              <div className="flex items-center gap-2 ml-auto">
+                {noPercent > 10 && `${noPercent}% NO`}
+                <XCircle size={16} />
+              </div>
             </motion.div>
           </div>
 
-          <div className="flex justify-between items-center text-xs font-bold text-gray-400">
-            <div className="flex items-center gap-2">
-              <BarChart3 size={18} className="text-bd-green" />
-              <span>{poll.totalVotes.toLocaleString()} Verified Citizens</span>
+          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+            <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
+              <BarChart3 size={16} className="text-bd-green" />
+              <span>{poll.totalVotes.toLocaleString()} Verified Signals</span>
             </div>
             <div className={cn(
-              "px-4 py-1.5 rounded-full font-black text-[10px] tracking-widest uppercase border",
-              userVote.answer ? "bg-bd-green/5 text-bd-green border-bd-green/20" : "bg-bd-red/5 text-bd-red border-bd-red/20"
+              "px-5 py-2 rounded-xl font-black text-[10px] tracking-widest uppercase border flex items-center gap-2 shadow-sm",
+              userVote.answer ? "bg-bd-green/10 text-bd-green border-bd-green/20" : "bg-bd-red/10 text-bd-red border-bd-red/20"
             )}>
-              Voted {userVote.answer ? 'YES' : 'NO'}
+              {userVote.answer ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              Your Position: {userVote.answer ? 'YES' : 'NO'}
             </div>
           </div>
 
@@ -529,7 +542,10 @@ const AdminPanel: React.FC = () => {
       </h4>
       <div className="space-y-6">
         <div className="relative">
+          <label htmlFor="poll-question" className="sr-only">Poll Question</label>
           <textarea
+            id="poll-question"
+            name="question"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="Enter a news headline or topic..."
@@ -550,8 +566,10 @@ const AdminPanel: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Source</label>
+            <label htmlFor="poll-source" className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Source</label>
             <input
+              id="poll-source"
+              name="source"
               type="text"
               value={source}
               onChange={(e) => setSource(e.target.value)}
@@ -559,8 +577,10 @@ const AdminPanel: React.FC = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category</label>
+            <label htmlFor="poll-category" className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Category</label>
             <select
+              id="poll-category"
+              name="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full p-4 rounded-2xl ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none text-sm font-bold bg-white appearance-none"
@@ -828,39 +848,48 @@ const AuthSection: React.FC = () => {
 
       {mode === 'signup' && (
         <div className="space-y-1.5">
-          <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Full Name</label>
+          <label htmlFor="signup-name" className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Full Name</label>
           <input 
+            id="signup-name"
+            name="name"
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-4 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-bd-green font-bold text-sm"
             placeholder="John Doe"
+            autoComplete="name"
           />
         </div>
       )}
 
       <div className="space-y-1.5">
-        <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Email Address</label>
+        <label htmlFor="auth-email" className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Email Address</label>
         <input 
+          id="auth-email"
+          name="email"
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-4 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-bd-green font-bold text-sm"
           placeholder="name@example.com"
+          autoComplete="email"
         />
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Password</label>
+        <label htmlFor="auth-password" className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">Password</label>
         <input 
+          id="auth-password"
+          name="password"
           type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-4 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-bd-green font-bold text-sm"
           placeholder="••••••••"
+          autoComplete={mode === 'login' ? "current-password" : "new-password"}
         />
       </div>
 
@@ -995,27 +1024,39 @@ const AppContent: React.FC = () => {
       <main className="max-w-2xl mx-auto px-8 pt-12">
         {!user ? (
           <div className="space-y-12">
-            <div className="text-center py-16 bg-white rounded-[3.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-12">
-              <div className="w-24 h-24 bg-bd-green/10 text-bd-green rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 relative group">
-                <ShieldCheck size={48} className="group-hover:rotate-12 transition-transform duration-500" />
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-bd-red rounded-full border-4 border-white flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+            <div className="text-center py-20 bg-white rounded-[4rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-12 relative overflow-hidden group">
+              {/* Complex Background decorative elements */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #006A4E 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-bd-green/5 rounded-full blur-[80px]" />
+              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-bd-red/5 rounded-full blur-[80px]" />
+              
+              <div className="relative z-10">
+                <div className="w-28 h-28 bg-bd-green/10 text-bd-green rounded-[3rem] flex items-center justify-center mx-auto mb-10 relative shadow-xl shadow-bd-green/5 border border-bd-green/10 transition-all duration-700 group-hover:scale-105 group-hover:rotate-3">
+                  <ShieldCheck size={56} />
+                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-bd-red rounded-full border-4 border-white flex items-center justify-center shadow-lg">
+                    <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" />
+                  </div>
+                </div>
+                
+                <h2 className="text-5xl lg:text-7xl font-display font-black text-gray-900 mb-8 tracking-tighter leading-[0.95] perspective-1000">
+                  Democracy,<br />
+                  <span className="text-bd-green drop-shadow-sm">Quantified.</span>
+                </h2>
+                
+                <p className="text-gray-500 mb-12 leading-relaxed text-xl max-w-sm mx-auto font-medium">
+                  The first AI-powered referendum engine for <span className="text-bd-green font-black underline decoration-bd-red/20 underline-offset-8">Bangladesh</span>.
+                </p>
+                
+                <div className="max-w-xs mx-auto">
+                  <AuthSection />
                 </div>
               </div>
-              <h2 className="text-4xl lg:text-5xl font-display font-black text-gray-900 mb-6 tracking-tight leading-[1.1]">
-                Democracy, <br />
-                <span className="text-bd-green">Quantified.</span>
-              </h2>
-              <p className="text-gray-500 mb-10 leading-relaxed text-lg max-w-sm mx-auto font-medium">
-                The first AI-powered referendum engine for <span className="text-bd-green font-black">Bangladesh</span>.
-              </p>
-              <AuthSection />
+            </div>
               <p className="mt-8 text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
                 <Lock size={12} />
                 End-to-End Encrypted Participation
               </p>
             </div>
-          </div>
         ) : (
           <>
             {isAdmin && <AdminPanel />}
@@ -1260,15 +1301,18 @@ const AppContent: React.FC = () => {
                       </p>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">Phone Number</label>
+                      <label htmlFor="phone-input" className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">Phone Number</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">+880</span>
                         <input 
+                          id="phone-input"
+                          name="phone"
                           type="tel"
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                           placeholder="1XXXXXXXXX"
                           className="w-full p-6 pl-20 bg-gray-50 rounded-[1.5rem] border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none font-bold text-xl text-gray-900"
+                          autoComplete="tel-local"
                         />
                       </div>
                     </div>
@@ -1283,13 +1327,16 @@ const AppContent: React.FC = () => {
                 ) : (
                   <div className="space-y-8">
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">Enter 6-Digit OTP</label>
+                      <label htmlFor="otp-input" className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">Enter 6-Digit OTP</label>
                       <input 
+                        id="otp-input"
+                        name="otp"
                         type="text"
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         placeholder="XXXXXX"
                         className="w-full p-6 bg-gray-50 rounded-[1.5rem] border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-bd-green outline-none font-mono text-3xl tracking-[0.5em] text-center text-gray-900"
+                        autoComplete="one-time-code"
                       />
                     </div>
                     <button 
@@ -1478,9 +1525,11 @@ const AppContent: React.FC = () => {
                   </div>
                 ) : nidStep === 2 ? (
                   <div className="space-y-8">
-                    <div className="space-y-4">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">NID Number</label>
+                    <div className="space-y-4 text-left">
+                      <label htmlFor="nid-input" className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] ml-1">NID Number</label>
                       <input 
+                        id="nid-input"
+                        name="nid"
                         type="text"
                         value={nidNumber}
                         onChange={(e) => setNidNumber(e.target.value.replace(/\D/g, ''))}
